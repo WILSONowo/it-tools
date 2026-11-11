@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
 import { describe, expect, it } from 'vitest';
 import { isFalsyOrHasThrown } from './validation';
 
@@ -10,7 +11,7 @@ describe('useValidation', () => {
       expect(isFalsyOrHasThrown(() => {})).toBe(true);
       expect(
         isFalsyOrHasThrown(() => {
-          throw new Error('message');
+          throw new Error();
         }),
       ).toBe(true);
     });

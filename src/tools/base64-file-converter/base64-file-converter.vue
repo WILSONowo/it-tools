@@ -1,140 +1,110 @@
+<template>
+  <n-grid y-gap="16" cols="1 800:2" x-gap="16" responsive="screen" style="align-items: start">
+    <n-gi>
+      <n-card title="Base64 转文件">
+        <n-form label-placement="top">
+          <n-form-item :feedback="base64InputValidation.message" :validation-status="base64InputValidation.status">
+            <n-input
+              v-model:value="base64Input"
+              type="textarea"
+              placeholder="在此粘贴文件的 Base64 字符串..."
+              :autosize="{ minRows: 10 }"
+              spellcheck="false"
+              style="font-family: monospace; font-size: 13px"
+            />
+          </n-form-item>
+        </n-form>
+        <n-space justify="center" style="margin-top: 20px">
+          <n-button
+            type="primary"
+            :disabled="base64Input === '' || !base64InputValidation.isValid"
+            @click="downloadFile()"
+          >
+            下载文件
+          </n-button>
+        </n-space>
+      </n-card>
+    </n-gi>
+    <n-gi>
+      <n-card title="文件转 Base64">
+        <n-form label-placement="top">
+          <n-form-item label="选择文件">
+            <n-upload
+              v-model:file-list="fileList"
+              :show-file-list="true"
+              :on-before-upload="onUpload"
+              list-type="image"
+              style="width: 100%"
+            >
+              <n-upload-dragger>
+                <div mb-2>
+                  <n-icon size="35" :depth="3" :component="Upload" />
+                </div>
+                <n-text style="font-size: 14px"> 点击或将文件拖拽到此处上传 </n-text>
+              </n-upload-dragger>
+            </n-upload>
+          </n-form-item>
+          <n-form-item label="文件的 Base64" label-placement="top">
+            <n-input
+              :value="fileBase64"
+              type="textarea"
+              readonly
+              placeholder="文件的 Base64 将显示在这里"
+              :autosize="{ minRows: 5 }"
+              spellcheck="false"
+              style="font-family: monospace; font-size: 13px"
+            />
+          </n-form-item>
+        </n-form>
+        <n-space justify="center" style="margin-top: 16px">
+          <n-button secondary @click="copyFileBase64()">复制</n-button>
+        </n-space>
+      </n-card>
+    </n-gi>
+  </n-grid>
+</template>
+
 <script setup lang="ts">
-import { useBase64 } from '@vueuse/core';
-import type { Ref } from 'vue';
 import { useCopy } from '@/composable/copy';
-import { getExtensionFromMimeType, getMimeTypeFromBase64, previewImageFromBase64, useDownloadFileFromBase64Refs } from '@/composable/downloadBase64';
+import { useDownloadFileFromBase64 } from '@/composable/downloadBase64';
 import { useValidation } from '@/composable/validation';
 import { isValidBase64 } from '@/utils/base64';
+import { Upload } from '@vicons/tabler';
+import { useBase64 } from '@vueuse/core';
+import type { UploadFileInfo } from 'naive-ui';
+import { ref, type Ref } from 'vue';
 
-const fileName = ref('file');
-const fileExtension = ref('');
 const base64Input = ref('');
-const { download } = useDownloadFileFromBase64Refs(
-  {
-    source: base64Input,
-    filename: fileName,
-    extension: fileExtension,
-  });
+const { download } = useDownloadFileFromBase64({ source: base64Input });
 const base64InputValidation = useValidation({
   source: base64Input,
   rules: [
     {
-      message: 'Invalid base 64 string',
-      validator: value => isValidBase64(value.trim()),
+      message: '无效的 Base64 字符串',
+      validator: (value) => isValidBase64(value.trim()),
     },
   ],
 });
 
-watch(
-  base64Input,
-  (newValue, _) => {
-    const { mimeType } = getMimeTypeFromBase64({ base64String: newValue });
-    if (mimeType) {
-      fileExtension.value = getExtensionFromMimeType(mimeType) || fileExtension.value;
-    }
-  },
-);
-
-function previewImage() {
-  if (!base64InputValidation.isValid) {
-    return;
-  }
-  try {
-    const image = previewImageFromBase64(base64Input.value);
-    image.style.maxWidth = '100%';
-    image.style.maxHeight = '400px';
-    const previewContainer = document.getElementById('previewContainer');
-    if (previewContainer) {
-      previewContainer.innerHTML = '';
-      previewContainer.appendChild(image);
-    }
-  }
-  catch (_) {
-    //
-  }
-}
-
 function downloadFile() {
-  if (!base64InputValidation.isValid) {
-    return;
-  }
+  if (!base64InputValidation.isValid) return;
 
   try {
     download();
-  }
-  catch (_) {
+  } catch (_) {
     //
   }
 }
 
+const fileList = ref();
 const fileInput = ref() as Ref<File>;
 const { base64: fileBase64 } = useBase64(fileInput);
-const { copy: copyFileBase64 } = useCopy({ source: fileBase64, text: 'Base64 string copied to the clipboard' });
+const { copy: copyFileBase64 } = useCopy({ source: fileBase64, text: 'Base64 字符串已复制到剪贴板' });
 
-async function onUpload(file: File) {
+async function onUpload({ file: { file } }: { file: UploadFileInfo }) {
   if (file) {
+    fileList.value = [];
     fileInput.value = file;
   }
 }
 </script>
-
-<template>
-  <c-card title="Base64 to file">
-    <n-grid cols="3" x-gap="12">
-      <n-gi span="2">
-        <c-input-text
-          v-model:value="fileName"
-          label="File Name"
-          placeholder="Download filename"
-          mb-2
-        />
-      </n-gi>
-      <n-gi>
-        <c-input-text
-          v-model:value="fileExtension"
-          label="Extension"
-          placeholder="Extension"
-          mb-2
-        />
-      </n-gi>
-    </n-grid>
-    <c-input-text
-      v-model:value="base64Input"
-      multiline
-      placeholder="Put your base64 file string here..."
-      rows="5"
-      :validation="base64InputValidation"
-      mb-2
-    />
-
-    <div flex justify-center py-2>
-      <div id="previewContainer" />
-    </div>
-
-    <div flex justify-center gap-3>
-      <c-button :disabled="base64Input === '' || !base64InputValidation.isValid" @click="previewImage()">
-        Preview image
-      </c-button>
-      <c-button :disabled="base64Input === '' || !base64InputValidation.isValid" @click="downloadFile()">
-        Download file
-      </c-button>
-    </div>
-  </c-card>
-
-  <c-card title="File to base64">
-    <c-file-upload title="Drag and drop a file here, or click to select a file" @file-upload="onUpload" />
-    <c-input-text :value="fileBase64" multiline readonly placeholder="File in base64 will be here" rows="5" my-2 />
-
-    <div flex justify-center>
-      <c-button @click="copyFileBase64()">
-        Copy
-      </c-button>
-    </div>
-  </c-card>
-</template>
-
-<style lang="less" scoped>
-::v-deep(.n-upload-trigger) {
-  width: 100%;
-}
-</style>

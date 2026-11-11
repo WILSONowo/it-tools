@@ -1,92 +1,88 @@
 <script setup lang="ts">
-import { IconDragDrop, IconHeart } from '@tabler/icons-vue';
+import { config } from '@/config';
+import { useToolStore } from '@/tools/tools.store';
+import { Heart } from '@vicons/tabler';
 import { useHead } from '@vueuse/head';
-import { computed } from 'vue';
-import Draggable from 'vuedraggable';
 import ColoredCard from '../components/ColoredCard.vue';
 import ToolCard from '../components/ToolCard.vue';
-import { useToolStore } from '@/tools/tools.store';
-import { config } from '@/config';
 
 const toolStore = useToolStore();
 
-useHead({ title: 'IT Tools - Handy online tools for developers' });
-const { t } = useI18n();
-
-const favoriteTools = computed(() => toolStore.favoriteTools);
-
-// Update favorite tools order when drag is finished
-function onUpdateFavoriteTools() {
-  toolStore.updateFavoriteTools(favoriteTools.value); // Update the store with the new order
-}
+useHead({ title: '在线工具箱' });
 </script>
 
 <template>
-  <div class="pt-50px">
+  <div class="home-page">
     <div class="grid-wrapper">
-      <div class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
-        <ColoredCard v-if="config.showBanner" :title="$t('home.follow.title')" :icon="IconHeart">
-          {{ $t('home.follow.p1') }}
-          <a
-            href="https://github.com/CorentinTh/it-tools"
-            rel="noopener"
-            target="_blank"
-            :aria-label="$t('home.follow.githubRepository')"
-          >GitHub</a>
-          {{ $t('home.follow.p2') }}
-          <a
-            href="https://x.com/ittoolsdottech"
-            rel="noopener"
-            target="_blank"
-            :aria-label="$t('home.follow.twitterXAccount')"
-          >X</a>.
-          {{ $t('home.follow.thankYou') }}
-          <n-icon :component="IconHeart" />
-        </ColoredCard>
-      </div>
+      <n-grid v-if="config.showBanner" x-gap="12" y-gap="12" cols="1 400:2 800:3 1200:4 2000:8">
+        <n-gi>
+          <colored-card title="喜欢 IT-Tools?" :icon="Heart">
+            喜欢 IT-Tools 吗?到 GitHub 给我们点个星
+            <a
+              href="https://github.com/CorentinTh/it-tools"
+              rel="noopener"
+              target="_blank"
+              aria-label="IT-Tools GitHub 仓库"
+              >GitHub</a
+            >
+            或在 Twitter 关注我们
+            <a
+              href="https://twitter.com/ittoolsdottech"
+              rel="noopener"
+              target="_blank"
+              aria-label="IT-Tools Twitter 账号"
+              >Twitter</a
+            >! 谢谢
+            <n-icon :component="Heart" />
+          </colored-card>
+        </n-gi>
+      </n-grid>
 
       <transition name="height">
         <div v-if="toolStore.favoriteTools.length > 0">
-          <h3 class="mb-5px mt-25px text-neutral-400 font-500">
-            {{ $t('home.categories.favoriteTools') }}
-            <c-tooltip :tooltip="$t('home.categories.favoritesDndToolTip')">
-              <n-icon :component="IconDragDrop" size="18" />
-            </c-tooltip>
-          </h3>
-          <Draggable
-            :list="favoriteTools"
-            class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4"
-            ghost-class="ghost-favorites-draggable"
-            item-key="name"
-            @end="onUpdateFavoriteTools"
-          >
-            <template #item="{ element: tool }">
-              <ToolCard :tool="tool" />
-            </template>
-          </Draggable>
+          <n-h3>我的收藏工具</n-h3>
+          <n-grid x-gap="12" y-gap="12" cols="1 400:2 800:3 1200:4 2000:8">
+            <n-gi v-for="tool in toolStore.favoriteTools" :key="tool.name">
+              <tool-card :tool="tool" />
+            </n-gi>
+          </n-grid>
         </div>
       </transition>
 
       <div v-if="toolStore.newTools.length > 0">
-        <h3 class="mb-5px mt-25px text-neutral-400 font-500">
-          {{ t('home.categories.newestTools') }}
-        </h3>
-        <div class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ToolCard v-for="tool in toolStore.newTools" :key="tool.name" :tool="tool" />
-        </div>
+        <n-h3>最新工具</n-h3>
+        <n-grid x-gap="12" y-gap="12" cols="1 400:2 800:3 1200:4 2000:8">
+          <n-gi v-for="tool in toolStore.newTools" :key="tool.name">
+            <tool-card :tool="tool" />
+          </n-gi>
+        </n-grid>
       </div>
 
-      <h3 class="mb-5px mt-25px text-neutral-400 font-500">
-        {{ $t('home.categories.allTools') }}
-      </h3>
-      <div class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
-        <ToolCard v-for="tool in toolStore.tools" :key="tool.name" :tool="tool" />
-      </div>
+      <n-h3>全部工具</n-h3>
+      <n-grid x-gap="12" y-gap="12" cols="1 400:2 800:3 1200:4 2000:8">
+        <n-gi v-for="tool in toolStore.tools" :key="tool.name">
+          <transition>
+            <tool-card :tool="tool" />
+          </transition>
+        </n-gi>
+      </n-grid>
     </div>
   </div>
 </template>
 
 <style scoped lang="less">
+.home-page {
+  padding-top: 50px;
+}
+
+.n-h3 {
+  margin-bottom: 10px;
+}
+
+::v-deep(.n-grid) {
+  margin-bottom: 30px;
+}
+
 .height-enter-active,
 .height-leave-active {
   transition: all 0.5s ease-in-out;
@@ -100,25 +96,5 @@ function onUpdateFavoriteTools() {
   overflow: hidden;
   opacity: 0;
   margin-bottom: 0;
-}
-
-.ghost-favorites-draggable {
-  opacity: 0.4;
-  background-color: #ccc;
-  border: 2px dashed #666;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  transform: scale(1.1);
-  animation: ghost-favorites-draggable-animation 0.2s ease-out;
-}
-
-@keyframes ghost-favorites-draggable-animation {
-  0% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 0.4;
-    transform: scale(1.0);
-  }
 }
 </style>

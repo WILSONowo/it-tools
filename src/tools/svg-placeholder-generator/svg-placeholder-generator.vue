@@ -1,8 +1,63 @@
+<template>
+  <div>
+    <n-form label-placement="left" label-width="150">
+      <n-space item-style="flex:1 1 0">
+        <n-form-item label="宽度(px)">
+          <n-input-number v-model:value="width" placeholder="SVG 宽度..." min="1" />
+        </n-form-item>
+        <n-form-item label="背景色">
+          <n-color-picker v-model:value="bgColor" :modes="['hex']" />
+        </n-form-item>
+      </n-space>
+      <n-space item-style="flex:1 1 0">
+        <n-form-item label="高度(px)">
+          <n-input-number v-model:value="height" placeholder="SVG 高度..." min="1" />
+        </n-form-item>
+        <n-form-item label="文字颜色">
+          <n-color-picker v-model:value="fgColor" :modes="['hex']" />
+        </n-form-item>
+      </n-space>
+      <n-space item-style="flex:1 1 0">
+        <n-form-item label="字号">
+          <n-input-number v-model:value="fontSize" placeholder="字号..." min="1" />
+        </n-form-item>
+        <n-form-item label="自定义文字">
+          <n-input v-model:value="customText" :placeholder="`默认为 ${width}x${height}`" />
+        </n-form-item>
+      </n-space>
+      <n-form-item label="使用精确尺寸" label-placement="left">
+        <n-switch v-model:value="useExactSize" />
+      </n-form-item>
+    </n-form>
+
+    <n-form-item label="SVG HTML 元素">
+      <textarea-copyable :value="svgString" copy-placement="none" />
+    </n-form-item>
+    <n-form-item label="Base64 格式 SVG">
+      <textarea-copyable :value="base64" copy-placement="none" />
+    </n-form-item>
+
+    <n-space justify="center" style="margin-top: 12px">
+      <n-button secondary @click="copySVG()">复制 SVG</n-button>
+      <n-button secondary @click="copyBase64()">复制 Base64</n-button>
+      <n-button type="primary" secondary @click="download()">下载 SVG</n-button>
+    </n-space>
+
+    <n-divider />
+
+    <n-text depth="2" style="display: block; margin-bottom: 6px">预览</n-text>
+    <n-space vertical justify="center" align="center">
+      <img :src="base64" alt="占位图" style="max-width: 100%" />
+    </n-space>
+  </div>
+</template>
+
 <script setup lang="ts">
 import TextareaCopyable from '@/components/TextareaCopyable.vue';
 import { useCopy } from '@/composable/copy';
 import { useDownloadFileFromBase64 } from '@/composable/downloadBase64';
 import { textToBase64 } from '@/utils/base64';
+import { computed, ref } from 'vue';
 
 const width = ref(600);
 const height = ref(350);
@@ -24,74 +79,12 @@ const svgString = computed(() => {
 </svg>
   `.trim();
 });
-const base64 = computed(() => `data:image/svg+xml;base64,${textToBase64(svgString.value)}`);
+const base64 = computed(() => 'data:image/svg+xml;base64,' + textToBase64(svgString.value));
 
 const { copy: copySVG } = useCopy({ source: svgString });
 const { copy: copyBase64 } = useCopy({ source: base64 });
 const { download } = useDownloadFileFromBase64({ source: base64 });
 </script>
-
-<template>
-  <div>
-    <n-form label-placement="left" label-width="100">
-      <div flex gap-3>
-        <n-form-item label="Width (in px)" flex-1>
-          <n-input-number v-model:value="width" placeholder="SVG width..." min="1" />
-        </n-form-item>
-        <n-form-item label="Background" flex-1>
-          <n-color-picker v-model:value="bgColor" :modes="['hex']" />
-        </n-form-item>
-      </div>
-      <div flex gap-3>
-        <n-form-item label="Height (in px)" flex-1>
-          <n-input-number v-model:value="height" placeholder="SVG height..." min="1" />
-        </n-form-item>
-        <n-form-item label="Text color" flex-1>
-          <n-color-picker v-model:value="fgColor" :modes="['hex']" />
-        </n-form-item>
-      </div>
-      <div flex gap-3>
-        <n-form-item label="Font size" flex-1>
-          <n-input-number v-model:value="fontSize" placeholder="Font size..." min="1" />
-        </n-form-item>
-
-        <c-input-text
-          v-model:value="customText"
-          label="Custom text"
-          :placeholder="`Default is ${width}x${height}`"
-          label-position="left"
-          label-width="100px"
-          label-align="right"
-          flex-1
-        />
-      </div>
-      <n-form-item label="Use exact size" label-placement="left">
-        <n-switch v-model:value="useExactSize" />
-      </n-form-item>
-    </n-form>
-
-    <n-form-item label="SVG HTML element">
-      <TextareaCopyable :value="svgString" copy-placement="none" />
-    </n-form-item>
-    <n-form-item label="SVG in Base64">
-      <TextareaCopyable :value="base64" copy-placement="none" />
-    </n-form-item>
-
-    <div flex justify-center gap-3>
-      <c-button @click="copySVG()">
-        Copy svg
-      </c-button>
-      <c-button @click="copyBase64()">
-        Copy base64
-      </c-button>
-      <c-button @click="download()">
-        Download svg
-      </c-button>
-    </div>
-  </div>
-
-  <img :src="base64" alt="Image">
-</template>
 
 <style lang="less" scoped>
 .n-input-number {

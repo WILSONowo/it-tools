@@ -1,6 +1,27 @@
+<template>
+  <div style="width: 100%">
+    <n-card style="text-align: center; padding: 40px 0; margin-bottom: 16px">
+      <n-h2 v-if="event">{{ event.key }}</n-h2>
+      <n-text strong depth="3">按下键盘上想要查询信息的按键</n-text>
+    </n-card>
+
+    <n-form label-placement="left" label-width="150">
+      <n-form-item
+        v-for="({ label, value, placeholder }, i) of fields"
+        :key="i"
+        :label="label"
+        :show-feedback="false"
+        style="margin: 0 0 12px"
+      >
+        <input-copyable :value="value" readonly :placeholder="placeholder" />
+      </n-form-item>
+    </n-form>
+  </div>
+</template>
+
 <script setup lang="ts">
 import { useEventListener } from '@vueuse/core';
-
+import { computed, ref } from 'vue';
 import InputCopyable from '../../components/InputCopyable.vue';
 
 const event = ref<KeyboardEvent>();
@@ -10,34 +31,32 @@ useEventListener(document, 'keydown', (e) => {
 });
 
 const fields = computed(() => {
-  if (!event.value) {
-    return [];
-  }
+  if (!event.value) return [];
 
   return [
     {
-      label: 'Key :',
+      label: '按键 :',
       value: event.value.key,
-      placeholder: 'Key name...',
+      placeholder: '按键名称...',
     },
     {
-      label: 'Keycode :',
+      label: '键码 :',
       value: String(event.value.keyCode),
-      placeholder: 'Keycode...',
+      placeholder: '键码...',
     },
     {
-      label: 'Code :',
+      label: '代码 :',
       value: event.value.code,
-      placeholder: 'Code...',
+      placeholder: '代码...',
     },
     {
-      label: 'Location :',
+      label: '位置 :',
       value: String(event.value.location),
-      placeholder: 'Code...',
+      placeholder: '代码...',
     },
 
     {
-      label: 'Modifiers :',
+      label: '修饰键 :',
       value: [
         event.value.metaKey && 'Meta',
         event.value.shiftKey && 'Shift',
@@ -46,28 +65,10 @@ const fields = computed(() => {
       ]
         .filter(Boolean)
         .join(' + '),
-      placeholder: 'None',
+      placeholder: '无',
     },
   ];
 });
 </script>
 
-<template>
-  <div>
-    <c-card mb-5 text-center important:py-12>
-      <div v-if="event" mb-2 text-3xl>
-        {{ event.key }}
-      </div>
-      <span lh-1 op-70>
-        Press the key on your keyboard you want to get info about this key
-      </span>
-    </c-card>
-
-    <n-input-group v-for="({ label, value, placeholder }, i) of fields" :key="i" style="margin-bottom: 5px">
-      <n-input-group-label style="flex: 0 0 150px">
-        {{ label }}
-      </n-input-group-label>
-      <InputCopyable :value="value" readonly :placeholder="placeholder" />
-    </n-input-group>
-  </div>
-</template>
+<style lang="less" scoped></style>

@@ -23,9 +23,9 @@ export const config = figue({
     env: {
       doc: 'Application current env',
       format: 'enum',
-      values: ['production', 'development', 'preview', 'test'],
+      values: ['production', 'development', 'test'],
       default: 'development',
-      env: 'VITE_VERCEL_ENV',
+      env: 'MODE',
     },
   },
   plausible: {
@@ -58,12 +58,6 @@ export const config = figue({
     format: 'boolean',
     default: false,
     env: 'VITE_SHOW_BANNER',
-  },
-  showSponsorBanner: {
-    doc: 'Show the sponsor banner',
-    format: 'boolean',
-    default: false,
-    env: 'VITE_SHOW_SPONSOR_BANNER',
   },
 })
   .loadEnv({

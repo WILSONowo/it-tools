@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { arabicToRoman } from './roman-numeral-converter.service';
 
 describe('roman-numeral-converter', () => {

@@ -1,27 +1,20 @@
 <script setup lang="ts">
+import { Coffee } from '@vicons/tabler';
 import { useHead } from '@vueuse/head';
 
-useHead({ title: 'Page not found - IT Tools' });
+useHead({ title: '页面不存在 - IT-Tools' });
 </script>
 
 <template>
   <div mt-20 flex flex-col items-center>
-    <span text-90px lh-1 op-50>
-      <icon-mdi:kettle-steam-outline />
-    </span>
+    <n-icon :component="Coffee" size="100" depth="3" />
 
-    <h1 m-0 mt-3>
-      {{ $t('404.notFound') }}
-    </h1>
-    <div mt-4 op-60>
-      {{ $t('404.sorry') }}
-    </div>
-    <div mb-8 op-60>
-      {{ $t('404.maybe') }}
-    </div>
+    <n-h1 m-0 mt-3>404 页面未找到</n-h1>
+    <n-text mt-4 block depth="3">抱歉,这个页面似乎不存在</n-text>
+    <n-text mb-8 block depth="3">可能是缓存问题,试试强制刷新?</n-text>
 
-    <c-button to="/">
-      {{ $t('404.backHome') }}
-    </c-button>
+    <router-link to="/" #="{ navigate, href }" custom>
+      <n-button tag="a" :href="href" secondary @click="navigate"> 返回首页 </n-button>
+    </router-link>
   </div>
 </template>

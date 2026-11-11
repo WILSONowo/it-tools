@@ -1,89 +1,105 @@
+<template>
+  <div>
+    <n-form-item label="User-Agent 字符串">
+      <n-input
+        v-model:value="ua"
+        type="textarea"
+        placeholder="在此粘贴User-Agent..."
+        clearable
+        :autosize="{ minRows: 2 }"
+      />
+    </n-form-item>
+
+    <user-agent-result-cards v-if="userAgentInfo" :user-agent-info="userAgentInfo" :sections="sections" />
+  </div>
+</template>
+
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { UAParser } from 'ua-parser-js';
+import { withDefaultOnError } from '@/utils/defaults';
 import { Adjustments, Browser, Cpu, Devices, Engine } from '@vicons/tabler';
 import UserAgentResultCards from './user-agent-result-cards.vue';
 import type { UserAgentResultSection } from './user-agent-parser.types';
-import { withDefaultOnError } from '@/utils/defaults';
 
 const ua = ref(navigator.userAgent as string);
 
 // If not input in the ua field is present return an empty object of type UAParser.IResult because otherwise
 // UAParser returns the values for the current Browser. This is confusing because results are shown for an empty
 // UA field value.
-function getUserAgentInfo(userAgent: string) {
-  return userAgent.trim().length > 0
+const getUserAgentInfo = (userAgent: string) =>
+  userAgent.trim().length > 0
     ? UAParser(userAgent.trim())
     : ({ ua: '', browser: {}, cpu: {}, device: {}, engine: {}, os: {} } as UAParser.IResult);
-}
 const userAgentInfo = computed(() => withDefaultOnError(() => getUserAgentInfo(ua.value), undefined));
 
 const sections: UserAgentResultSection[] = [
   {
-    heading: 'Browser',
+    heading: '浏览器',
     icon: Browser,
     content: [
       {
-        label: 'Name',
-        getValue: block => block?.browser.name,
-        undefinedFallback: 'No browser name available',
+        label: '名称',
+        getValue: (block) => block.browser.name,
+        undefinedFallback: '没有可用的浏览器名称',
       },
       {
-        label: 'Version',
-        getValue: block => block?.browser.version,
-        undefinedFallback: 'No browser version available',
+        label: '版本',
+        getValue: (block) => block.browser.version,
+        undefinedFallback: '没有可用的浏览器版本',
       },
     ],
   },
   {
-    heading: 'Engine',
+    heading: '引擎',
     icon: Engine,
     content: [
       {
-        label: 'Name',
-        getValue: block => block?.engine.name,
-        undefinedFallback: 'No engine name available',
+        label: '名称',
+        getValue: (block) => block.engine.name,
+        undefinedFallback: '没有可用的引擎名称',
       },
       {
-        label: 'Version',
-        getValue: block => block?.engine.version,
-        undefinedFallback: 'No engine version available',
+        label: '版本',
+        getValue: (block) => block.engine.version,
+        undefinedFallback: '没有可用的引擎版本',
       },
     ],
   },
   {
-    heading: 'OS',
+    heading: '操作系统',
     icon: Adjustments,
     content: [
       {
-        label: 'Name',
-        getValue: block => block?.os.name,
-        undefinedFallback: 'No OS name available',
+        label: '名称',
+        getValue: (block) => block.os.name,
+        undefinedFallback: '没有可用的操作系统名称',
       },
       {
-        label: 'Version',
-        getValue: block => block?.os.version,
-        undefinedFallback: 'No OS version available',
+        label: '版本',
+        getValue: (block) => block.os.version,
+        undefinedFallback: '没有可用的操作系统版本',
       },
     ],
   },
   {
-    heading: 'Device',
+    heading: '设备',
     icon: Devices,
     content: [
       {
-        label: 'Model',
-        getValue: block => block?.device.model,
-        undefinedFallback: 'No device model available',
+        label: '型号',
+        getValue: (block) => block.device.model,
+        undefinedFallback: '没有可用的设备型号',
       },
       {
-        label: 'Type',
-        getValue: block => block?.device.type,
-        undefinedFallback: 'No device type available',
+        label: '类型',
+        getValue: (block) => block.device.type,
+        undefinedFallback: '没有可用的设备类型',
       },
       {
-        label: 'Vendor',
-        getValue: block => block?.device.vendor,
-        undefinedFallback: 'No device vendor available',
+        label: '厂商',
+        getValue: (block) => block.device.vendor,
+        undefinedFallback: '没有可用的设备厂商',
       },
     ],
   },
@@ -92,30 +108,13 @@ const sections: UserAgentResultSection[] = [
     icon: Cpu,
     content: [
       {
-        label: 'Architecture',
-        getValue: block => block?.cpu.architecture,
-        undefinedFallback: 'No CPU architecture available',
+        label: '架构',
+        getValue: (block) => block.cpu.architecture,
+        undefinedFallback: '没有可用的 CPU 架构',
       },
     ],
   },
 ];
 </script>
 
-<template>
-  <div>
-    <c-input-text
-      v-model:value="ua"
-      label="User agent string"
-      multiline
-      placeholder="Put your user-agent here..."
-      clearable
-      raw-text
-      rows="2"
-      autosize
-      monospace
-      mb-3
-    />
-
-    <UserAgentResultCards :user-agent-info="userAgentInfo" :sections="sections" />
-  </div>
-</template>
+<style lang="less" scoped></style>

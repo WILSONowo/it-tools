@@ -1,21 +1,21 @@
 import type { OGSchemaType } from '../OGSchemaType.type';
 
 export const musicSong: OGSchemaType = {
-  name: 'Song details',
+  name: '歌曲详情',
   elements: [
-    { type: 'input', label: 'Duration', placeholder: 'The duration of the song...', key: 'music:duration' },
-    { type: 'input', label: 'Album', placeholder: 'The album this song is from...', key: 'music:album' },
+    { type: 'input', label: '时长', placeholder: '歌曲的时长...', key: 'music:duration' },
+    { type: 'input', label: '专辑', placeholder: '这首歌所属的专辑...', key: 'music:album' },
     {
       type: 'input',
-      label: 'Disc',
-      placeholder: 'Which disc of the album this song is on...',
+      label: '碟片',
+      placeholder: '这首歌属于专辑的哪张碟...',
       key: 'music:album:disk',
     },
-    { type: 'input', label: 'Track', placeholder: ' Which track this song is...', key: 'music:album:track' },
+    { type: 'input', label: '音轨', placeholder: '这首歌是专辑中的第几轨...', key: 'music:album:track' },
     {
       type: 'input-multiple',
-      label: 'Musician',
-      placeholder: 'The musician that made this song...',
+      label: '音乐人',
+      placeholder: '创作这首歌的音乐人...',
       key: 'music:musician',
     },
   ],

@@ -1,55 +1,55 @@
 import type { OGSchemaType } from '../OGSchemaType.type';
 
 const typeOptions = [
-  { label: 'Website', value: 'website' },
-  { label: 'Article', value: 'article' },
-  { label: 'Book', value: 'book' },
-  { label: 'Profile', value: 'profile' },
+  { label: '网站', value: 'website' },
+  { label: '文章', value: 'article' },
+  { label: '图书', value: 'book' },
+  { label: '个人资料', value: 'profile' },
   {
     type: 'group',
-    label: 'Music',
+    label: '音乐',
     key: 'Music',
     children: [
-      { label: 'Song', value: 'music.song' },
-      { label: 'Music album', value: 'music.album' },
-      { label: 'Playlist', value: 'music.playlist' },
-      { label: 'Radio station', value: 'music.radio_station' },
+      { label: '歌曲', value: 'music.song' },
+      { label: '音乐专辑', value: 'music.album' },
+      { label: '播放列表', value: 'music.playlist' },
+      { label: '广播电台', value: 'music.radio_station' },
     ],
   },
   {
     type: 'group',
-    label: 'Video',
+    label: '视频',
     key: 'Video',
     children: [
-      { label: 'Movie', value: 'video.movie' },
-      { label: 'Episode', value: 'video.episode' },
-      { label: 'TV show', value: 'video.tv_show' },
-      { label: 'Other video', value: 'video.other' },
+      { label: '电影', value: 'video.movie' },
+      { label: '剧集', value: 'video.episode' },
+      { label: '电视节目', value: 'video.tv_show' },
+      { label: '其他视频', value: 'video.other' },
     ],
   },
 ];
 
 export const website: OGSchemaType = {
-  name: 'General information',
+  name: '通用信息',
   elements: [
     {
       type: 'select',
-      label: 'Page type',
-      placeholder: 'Select the type of your website...',
+      label: '页面类型',
+      placeholder: '选择您的网站类型...',
       key: 'type',
       options: typeOptions,
     },
-    { type: 'input', label: 'Title', placeholder: 'Enter the title of your website...', key: 'title' },
+    { type: 'input', label: '标题', placeholder: '输入您的网站标题...', key: 'title' },
     {
       type: 'input',
-      label: 'Description',
-      placeholder: 'Enter the description of your website...',
+      label: '描述',
+      placeholder: '输入您的网站描述...',
       key: 'description',
     },
     {
       type: 'input',
-      label: 'Page URL',
-      placeholder: 'Enter the url of your website...',
+      label: '页面 URL',
+      placeholder: '输入您的网站 URL...',
       key: 'url',
     },
   ],

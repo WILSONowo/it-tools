@@ -1,143 +1,130 @@
 <script lang="ts" setup>
 import { NIcon, useThemeVars } from 'naive-ui';
-
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Heart, Home2, Menu2 } from '@vicons/tabler';
-
-import { storeToRefs } from 'pinia';
-import HeroGradient from '../assets/hero-gradient.svg?component';
-import MenuLayout from '../components/MenuLayout.vue';
-import NavbarButtons from '../components/NavbarButtons.vue';
+import { Menu2, Home2 } from '@vicons/tabler';
+import { toolsByCategory } from '@/tools';
 import { useStyleStore } from '@/stores/style.store';
 import { config } from '@/config';
 import type { ToolCategory } from '@/tools/tools.types';
 import { useToolStore } from '@/tools/tools.store';
-import { useTracker } from '@/modules/tracker/tracker.services';
 import CollapsibleToolMenu from '@/components/CollapsibleToolMenu.vue';
+import SearchBar from '../components/SearchBar.vue';
+import HeroGradient from '../assets/hero-gradient.svg?component';
+import MenuLayout from '../components/MenuLayout.vue';
+import NavbarButtons from '../components/NavbarButtons.vue';
 
 const themeVars = useThemeVars();
 const styleStore = useStyleStore();
 const version = config.app.version;
 const commitSha = config.app.lastCommitSha.slice(0, 7);
 
-const { tracker } = useTracker();
-const { t } = useI18n();
-
 const toolStore = useToolStore();
-const { favoriteTools, toolsByCategory } = storeToRefs(toolStore);
 
 const tools = computed<ToolCategory[]>(() => [
-  ...(favoriteTools.value.length > 0 ? [{ name: t('tools.categories.favorite-tools'), components: favoriteTools.value }] : []),
-  ...toolsByCategory.value,
+  ...(toolStore.favoriteTools.length > 0 ? [{ name: '我的收藏', components: toolStore.favoriteTools }] : []),
+  ...toolsByCategory,
 ]);
 </script>
 
 <template>
-  <MenuLayout class="menu-layout" :class="{ isSmallScreen: styleStore.isSmallScreen }">
+  <menu-layout class="menu-layout" :class="{ isSmallScreen: styleStore.isSmallScreen }">
     <template #sider>
-      <RouterLink to="/" class="hero-wrapper">
-        <HeroGradient class="gradient" />
+      <router-link to="/" class="hero-wrapper">
+        <hero-gradient class="gradient" />
         <div class="text-wrapper">
-          <div class="title">
-            IT - TOOLS
-          </div>
+          <div class="title">在线工具箱</div>
           <div class="divider" />
-          <div class="subtitle">
-            {{ $t('home.subtitle') }}
-          </div>
+          <div class="subtitle">共 {{ toolsByCategory.flatMap((c) => c.components).length }} 个在线工具软件</div>
         </div>
-      </RouterLink>
+      </router-link>
 
       <div class="sider-content">
-        <div v-if="styleStore.isSmallScreen" flex flex-col items-center>
-          <locale-selector w="90%" />
+        <n-space v-if="styleStore.isSmallScreen" justify="center">
+          <navbar-buttons />
+        </n-space>
 
-          <div flex justify-center>
-            <NavbarButtons />
-          </div>
-        </div>
-
-        <CollapsibleToolMenu :tools-by-category="tools" />
+        <collapsible-tool-menu :tools-by-category="tools" />
 
         <div class="footer">
           <div>
-            IT-Tools
+            在线工具箱
 
-            <c-link target="_blank" rel="noopener" :href="`https://github.com/CorentinTh/it-tools/tree/v${version}`">
+            <n-button
+              text
+              tag="a"
+              target="_blank"
+              rel="noopener"
+              type="primary"
+              depth="3"
+              :href="`https://github.com/CorentinTh/it-tools/tree/v${version}`"
+            >
               v{{ version }}
-            </c-link>
+            </n-button>
 
             <template v-if="commitSha && commitSha.length > 0">
               -
-              <c-link
+              <n-button
+                text
+                tag="a"
                 target="_blank"
                 rel="noopener"
                 type="primary"
+                depth="3"
                 :href="`https://github.com/CorentinTh/it-tools/tree/${commitSha}`"
               >
                 {{ commitSha }}
-              </c-link>
+              </n-button>
             </template>
           </div>
           <div>
             © {{ new Date().getFullYear() }}
-            <c-link target="_blank" rel="noopener" href="https://corentin.tech?utm_source=it-tools&utm_medium=footer">
+            <n-button text tag="a" target="_blank" rel="noopener" type="primary" href="https://github.com/CorentinTh">
               Corentin Thomasset
-            </c-link>
+            </n-button>
           </div>
         </div>
       </div>
     </template>
 
     <template #content>
-      <div flex items-center justify-center gap-2>
-        <c-button
+      <div class="navigation">
+        <n-button
+          :size="styleStore.isSmallScreen ? 'medium' : 'large'"
           circle
-          variant="text"
-          :aria-label="$t('home.toggleMenu')"
+          quaternary
+          aria-label="切换菜单"
           @click="styleStore.isMenuCollapsed = !styleStore.isMenuCollapsed"
         >
-          <NIcon size="25" :component="Menu2" />
-        </c-button>
+          <n-icon size="25" :component="Menu2" />
+        </n-button>
 
-        <c-tooltip :tooltip="$t('home.home')" position="bottom">
-          <c-button to="/" circle variant="text" :aria-label="$t('home.home')">
-            <NIcon size="25" :component="Home2" />
-          </c-button>
-        </c-tooltip>
+        <router-link to="/" #="{ navigate, href }" custom>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-button
+                tag="a"
+                :href="href"
+                :size="styleStore.isSmallScreen ? 'medium' : 'large'"
+                circle
+                quaternary
+                aria-label="首页"
+                @click="navigate"
+              >
+                <n-icon size="25" :component="Home2" />
+              </n-button>
+            </template>
+            首页
+          </n-tooltip>
+        </router-link>
 
-        <c-tooltip :tooltip="$t('home.uiLib')" position="bottom">
-          <c-button v-if="config.app.env === 'development'" to="/c-lib" circle variant="text" :aria-label="$t('home.uiLib')">
-            <icon-mdi:brush-variant text-20px />
-          </c-button>
-        </c-tooltip>
+        <search-bar />
 
-        <command-palette />
-
-        <locale-selector v-if="!styleStore.isSmallScreen" />
-
-        <div>
-          <NavbarButtons v-if="!styleStore.isSmallScreen" />
-        </div>
-
-        <c-tooltip position="bottom" :tooltip="$t('home.support')">
-          <c-button
-            round
-            href="https://www.buymeacoffee.com/cthmsst"
-            rel="noopener"
-            target="_blank"
-            class="support-button"
-            :bordered="false"
-            @click="() => tracker.trackEvent({ eventName: 'Support button clicked' })"
-          >
-            {{ $t('home.buyMeACoffee') }}
-            <NIcon v-if="!styleStore.isSmallScreen" :component="Heart" ml-2 />
-          </c-button>
-        </c-tooltip>
+        <navbar-buttons v-if="!styleStore.isSmallScreen" />
       </div>
       <slot />
     </template>
-  </MenuLayout>
+  </menu-layout>
 </template>
 
 <style lang="less" scoped>
@@ -151,19 +138,6 @@ const tools = computed<ToolCategory[]>(() => [
 //     background-position: 0 0, @position @position;
 //     background-size: @size @size;
 // }
-
-.support-button {
-  background: rgb(37, 99, 108);
-  background: linear-gradient(48deg, rgba(37, 99, 108, 1) 0%, rgba(59, 149, 111, 1) 60%, rgba(20, 160, 88, 1) 100%);
-  color: #fff !important;
-  transition: padding ease 0.2s !important;
-
-  &:hover {
-    color: #fff;
-    padding-left: 30px;
-    padding-right: 30px;
-  }
-}
 
 .footer {
   text-align: center;
@@ -213,6 +187,27 @@ const tools = computed<ToolCategory[]>(() => [
     .subtitle {
       font-size: 16px;
     }
+  }
+}
+
+// ::v-deep(.n-menu-item-content-header) {
+//   overflow: visible !important;
+//   // overflow-x: hidden !important;
+// }
+
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+
+  & > *:not(:last-child) {
+    margin-right: 5px;
+  }
+
+  .search-bar {
+    // width: 100%;
+    flex-grow: 1;
   }
 }
 </style>

@@ -1,193 +1,222 @@
+<template>
+  <div>
+    <n-card>
+      <n-form label-placement="left" label-width="150" :show-feedback="false">
+        <n-form-item label="Pattern(模式):" label-placement="top" v-bind="validation.attrs">
+          <n-input
+            v-model:value="pattern"
+            placeholder="例如 (\d{4})-(\d{2})-(\d{2})"
+            spellcheck="false"
+            style="font-family: monospace"
+          />
+        </n-form-item>
+        <n-form-item label="标志(Flags):" label-placement="top">
+          <n-space :wrap="true">
+            <n-checkbox v-for="flag in flagList" :key="flag.value" v-model:checked="flag.enabled">
+              {{ flag.label }}
+            </n-checkbox>
+          </n-space>
+        </n-form-item>
+        <n-form-item label="测试字符串:" label-placement="top">
+          <n-input
+            v-model:value="testString"
+            type="textarea"
+            :autosize="{ minRows: 5 }"
+            placeholder="要测试的文本..."
+            spellcheck="false"
+          />
+        </n-form-item>
+        <n-form-item label="替换为:" label-placement="top">
+          <n-input
+            v-model:value="replacement"
+            placeholder="可选:替换字符串,例如 YYYY-$2-$1 或 $1/$2"
+            spellcheck="false"
+            style="font-family: monospace"
+          />
+        </n-form-item>
+      </n-form>
+    </n-card>
+
+    <n-card v-if="error" title="无效 pattern">
+      <n-alert type="error" :show-icon="false">{{ error }}</n-alert>
+    </n-card>
+
+    <n-grid v-else cols="1 800:2" x-gap="20" y-gap="20" responsive="screen">
+      <n-gi>
+        <n-card title="匹配项">
+          <n-space vertical>
+            <n-statistic v-if="matchCount === 0" label="无匹配" :value="0" />
+            <template v-else>
+              <n-statistic :label="`${matchCount} 个匹配`" :value="''" />
+              <div
+                v-for="(m, index) in matches"
+                :key="index"
+                style="
+                  font-family: monospace;
+                  white-space: pre-wrap;
+                  background: rgba(128, 128, 128, 0.08);
+                  border-radius: 4px;
+                  padding: 6px 8px;
+                "
+              >
+                <b>#{{ index + 1 }}</b> {{ m[0] }}
+                <div v-if="m.groups" style="opacity: 0.75; margin-top: 4px">
+                  <div v-for="(value, key) in m.groups" :key="key">
+                    <n-tag size="small" :bordered="false" type="info" style="margin-right: 6px">{{ key }}</n-tag
+                    >{{ value }}
+                  </div>
+                </div>
+              </div>
+            </template>
+          </n-space>
+        </n-card>
+      </n-gi>
+
+      <n-gi>
+        <n-card title="替换结果">
+          <n-input
+            :value="replaced"
+            type="textarea"
+            readonly
+            :autosize="{ minRows: 5 }"
+            placeholder="替换结果将显示在此处..."
+            spellcheck="false"
+          />
+          <n-space justify="center" style="margin-top: 12px">
+            <n-button secondary @click="copyReplaced">复制结果</n-button>
+          </n-space>
+        </n-card>
+      </n-gi>
+    </n-grid>
+  </div>
+</template>
+
 <script setup lang="ts">
-import RandExp from 'randexp';
-import { render } from '@regexper/render';
-import type { ShadowRootExpose } from 'vue-shadow-dom';
-import { matchRegex } from './regex-tester.service';
+import { computed, ref } from 'vue';
 import { useValidation } from '@/composable/validation';
-import { useQueryParamOrStorage } from '@/composable/queryParams';
+import { useCopy } from '@/composable/copy';
 
-const regex = useQueryParamOrStorage({ name: 'regex', storageName: 'regex-tester:regex', defaultValue: '' });
-const text = ref('');
-const global = ref(true);
-const ignoreCase = ref(false);
-const multiline = ref(false);
-const dotAll = ref(true);
-const unicode = ref(true);
-const unicodeSets = ref(false);
-const visualizerSVG = ref<ShadowRootExpose>();
+const pattern = ref('(\\d{4})-(\\d{2})-(\\d{2})');
+const testString = ref('Today: 2023-11-15, and also 2023-11-16.');
+const replacement = ref('$3/$2/$1');
 
-const regexValidation = useValidation({
-  source: regex,
+const flagList = ref([
+  { label: 'g (全局)', value: 'g', enabled: true },
+  { label: 'i (忽略大小写)', value: 'i', enabled: false },
+  { label: 'm (多行)', value: 'm', enabled: false },
+  { label: 's (点号匹配换行)', value: 's', enabled: false },
+  { label: 'u (Unicode)', value: 'u', enabled: false },
+]);
+
+const flags = computed(() =>
+  flagList.value
+    .filter((f) => f.enabled)
+    .map((f) => f.value)
+    .join(''),
+);
+
+const validation = useValidation({
+  source: pattern,
+  watch: [flags],
   rules: [
     {
-      message: 'Invalid regex: {0}',
-      validator: value => new RegExp(value),
-      getErrorMessage: (value) => {
-        const _ = new RegExp(value);
-        return '';
+      message: '正则表达式无效',
+      validator: (value) => {
+        try {
+          new RegExp(value, flags.value);
+          return true;
+        } catch {
+          return false;
+        }
       },
     },
   ],
 });
-const results = computed(() => {
-  let flags = 'd';
-  if (global.value) {
-    flags += 'g';
-  }
-  if (ignoreCase.value) {
-    flags += 'i';
-  }
-  if (multiline.value) {
-    flags += 'm';
-  }
-  if (dotAll.value) {
-    flags += 's';
-  }
-  if (unicode.value) {
-    flags += 'u';
-  }
-  else if (unicodeSets.value) {
-    flags += 'v';
-  }
 
+const compiled = computed(() => {
   try {
-    return matchRegex(regex.value, text.value, flags);
-  }
-  catch (_) {
-    return [];
+    return new RegExp(pattern.value, flags.value);
+  } catch {
+    return null;
   }
 });
 
-const sample = computed(() => {
+const error = computed(() => {
   try {
-    const randexp = new RandExp(new RegExp(regex.value.replace(/\(\?\<[^\>]*\>/g, '(?:')));
-    return randexp.gen();
-  }
-  catch (_) {
+    new RegExp(pattern.value, flags.value);
     return '';
+  } catch (e) {
+    return (e as Error).message;
   }
 });
 
-watchEffect(
-  async () => {
-    const regexValue = regex.value;
-    // shadow root is required:
-    // @regexper/render append a <defs><style> that broke svg transparency of icons in the whole site
-    const visualizer = visualizerSVG.value?.shadow_root;
-    if (visualizer) {
-      while (visualizer.lastChild) {
-        visualizer.removeChild(visualizer.lastChild);
+const matchList = computed(() => {
+  const regex = compiled.value;
+  if (!regex || testString.value === '') return [];
+  const results: RegExpExecArray[] = [];
+  if (!flags.value.includes('g')) {
+    const m = regex.exec(testString.value);
+    if (m) results.push(m);
+    return results;
+  }
+
+  let m: RegExpExecArray | null;
+  regex.lastIndex = 0;
+  while ((m = regex.exec(testString.value)) !== null) {
+    results.push(m);
+    if (m.index === regex.lastIndex) regex.lastIndex++;
+  }
+
+  return results;
+});
+
+const matchCount = computed(() => matchList.value.length);
+const matches = computed(() => matchList.value);
+
+const replaced = computed(() => {
+  const regex = compiled.value;
+  if (!regex || testString.value === '' || replacement.value === '') return '';
+
+  const needsCustomReplacement = /\\\d|\$\d|\$\{/.test(replacement.value);
+  if (!needsCustomReplacement) {
+    return testString.value.replace(regex, replacement.value);
+  }
+
+  const source = testString.value;
+  const result: string[] = [];
+  let lastIndex = 0;
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  const expand = (m: string, groups: (string | undefined)[], named?: { [key: string]: string }) => {
+    return replacement.value.replace(/\\?(\$\d+|\$\{[^}]+\})/g, (token) => {
+      if (token.startsWith('\\')) return token.slice(1);
+      const numMatch = token.match(/^\$(\d+)$/);
+      if (numMatch) {
+        const idx = Number(numMatch[1]);
+        return groups[idx] ?? '';
       }
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      try {
-        await render(regexValue, svg);
+      const nameMatch = token.match(/^\$\{([^}]+)\}$/);
+      if (nameMatch && named) {
+        const key = nameMatch[1];
+        return key in named ? named[key] ?? '' : '';
       }
-      catch (_) {
-      }
-      visualizer.appendChild(svg);
-    }
-  },
-);
+      return token;
+    });
+  };
+
+  while ((match = regex.exec(source)) !== null) {
+    const groups = match.slice(1);
+    const named = match.groups ?? undefined;
+    result.push(source.slice(lastIndex, match.index));
+    result.push(expand(match[0], groups, named));
+    lastIndex = match.index + match[0].length;
+    if (match[0] === '') regex.lastIndex++;
+  }
+  result.push(source.slice(lastIndex));
+
+  return result.join('');
+});
+
+const { copy: copyReplaced } = useCopy({ source: replaced, text: '替换后的文本已复制到剪贴板' });
 </script>
-
-<template>
-  <div max-w-600px>
-    <c-card title="Regex" mb-1>
-      <c-input-text
-        v-model:value="regex"
-        label="Regex to test:"
-        placeholder="Put the regex to test"
-        multiline
-        rows="3"
-        :validation="regexValidation"
-      />
-      <router-link target="_blank" to="/regex-memo" mb-1 mt-1>
-        See Regular Expression Cheatsheet
-      </router-link>
-      <n-space>
-        <n-checkbox v-model:checked="global">
-          <span title="Global search">Global search. (<code>g</code>)</span>
-        </n-checkbox>
-        <n-checkbox v-model:checked="ignoreCase">
-          <span title="Case-insensitive search">Case-insensitive search. (<code>i</code>)</span>
-        </n-checkbox>
-        <n-checkbox v-model:checked="multiline">
-          <span title="Allows ^ and $ to match next to newline characters.">Multiline(<code>m</code>)</span>
-        </n-checkbox>
-        <n-checkbox v-model:checked="dotAll">
-          <span title="Allows . to match newline characters.">Singleline(<code>s</code>)</span>
-        </n-checkbox>
-        <n-checkbox v-model:checked="unicode">
-          <span title="Unicode; treat a pattern as a sequence of Unicode code points.">Unicode(<code>u</code>)</span>
-        </n-checkbox>
-        <n-checkbox v-model:checked="unicodeSets">
-          <span title="An upgrade to the u mode with more Unicode features.">Unicode Sets (<code>v</code>)</span>
-        </n-checkbox>
-      </n-space>
-
-      <n-divider />
-
-      <c-input-text
-        v-model:value="text"
-        label="Text to match:"
-        placeholder="Put the text to match"
-        multiline
-        rows="5"
-      />
-    </c-card>
-
-    <c-card title="Matches" mb-1 mt-3>
-      <n-table v-if="results?.length > 0">
-        <thead>
-          <tr>
-            <th scope="col">
-              Index in text
-            </th>
-            <th scope="col">
-              Value
-            </th>
-            <th scope="col">
-              Captures
-            </th>
-            <th scope="col">
-              Groups
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="match of results" :key="match.index">
-            <td>{{ match.index }}</td>
-            <td>{{ match.value }}</td>
-            <td>
-              <ul>
-                <li v-for="capture in match.captures" :key="capture.name">
-                  "{{ capture.name }}" = {{ capture.value }} [{{ capture.start }} - {{ capture.end }}]
-                </li>
-              </ul>
-            </td>
-            <td>
-              <ul>
-                <li v-for="group in match.groups" :key="group.name">
-                  "{{ group.name }}" = {{ group.value }} [{{ group.start }} - {{ group.end }}]
-                </li>
-              </ul>
-            </td>
-          </tr>
-        </tbody>
-      </n-table>
-      <c-alert v-else>
-        No match
-      </c-alert>
-    </c-card>
-
-    <c-card title="Sample matching text" mt-3>
-      <pre style="white-space: pre-wrap; word-break: break-all;">{{ sample }}</pre>
-    </c-card>
-
-    <c-card title="Regex Diagram" style="overflow-x: scroll;" mt-3>
-      <shadow-root ref="visualizerSVG">
-&#xa0;
-      </shadow-root>
-    </c-card>
-  </div>
-</template>

@@ -1,6 +1,90 @@
+<template>
+  <n-card>
+    <n-form label-placement="top">
+      <n-form-item label="Cron 表达式" :feedback="cronValidation.message" :validation-status="cronValidation.status">
+        <n-input v-model:value="cron" size="large" placeholder="* * * * *" class="cron" />
+      </n-form-item>
+    </n-form>
+    <div class="cron-string">
+      {{ cronString }}
+    </div>
+
+    <n-divider />
+
+    <n-form :show-feedback="false" label-width="170" label-placement="left" class="cron-options">
+      <n-form-item label="详细描述">
+        <n-switch v-model:value="cronstrueConfig.verbose" />
+      </n-form-item>
+      <n-form-item label="使用 24 小时制">
+        <n-switch v-model:value="cronstrueConfig.use24HourTimeFormat" />
+      </n-form-item>
+      <n-form-item label="星期序号从 0 开始">
+        <n-switch v-model:value="cronstrueConfig.dayOfWeekStartIndexZero" />
+      </n-form-item>
+    </n-form>
+    <n-space justify="center">
+      <n-button secondary @click="cron = '* * * * *'">重置示例</n-button>
+    </n-space>
+  </n-card>
+  <n-card>
+    <pre>
+┌──────────── 秒(0 - 59,可选)
+| ┌────────── 分钟 (0 - 59)
+| | ┌──────── 小时 (0 - 23)
+| | | ┌────── 日 (1 - 31)
+| | | | ┌──── 月 (1 - 12) OR jan,feb,mar,apr ...
+| | | | | ┌── 星期 (0 - 6,星期天=0) OR sun,mon ...
+| | | | | |
+* * * * * * command</pre
+    >
+
+    <n-space v-if="styleStore.isSmallScreen" vertical>
+      <n-card v-for="{ symbol, meaning, example, equivalent } in helpers" :key="symbol" embedded :bordered="false">
+        <div>
+          符号: <strong>{{ symbol }}</strong>
+        </div>
+        <div>
+          含义: <strong>{{ meaning }}</strong>
+        </div>
+        <div>
+          示例:
+          <strong
+            ><code>{{ example }}</code></strong
+          >
+        </div>
+        <div>
+          等价写法: <strong>{{ equivalent }}</strong>
+        </div>
+      </n-card>
+    </n-space>
+    <n-table v-else size="small">
+      <thead>
+        <tr>
+          <th class="text-left" scope="col">符号</th>
+          <th class="text-left" scope="col">含义</th>
+          <th class="text-left" scope="col">示例</th>
+          <th class="text-left" scope="col">等价写法</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="{ symbol, meaning, example, equivalent } in helpers" :key="symbol">
+          <td>{{ symbol }}</td>
+          <td>{{ meaning }}</td>
+          <td>
+            <code>{{ example }}</code>
+          </td>
+          <td>{{ equivalent }}</td>
+        </tr>
+      </tbody>
+    </n-table>
+  </n-card>
+</template>
+
 <script setup lang="ts">
 import cronstrue from 'cronstrue';
 import { isValidCron } from 'cron-validator';
+import { computed, reactive, ref } from 'vue';
+import { useValidation } from '@/composable/validation';
 import { useStyleStore } from '@/stores/style.store';
 
 function isCronValid(v: string) {
@@ -20,73 +104,73 @@ const cronstrueConfig = reactive({
 const helpers = [
   {
     symbol: '*',
-    meaning: 'Any value',
+    meaning: '任意值',
     example: '* * * *',
-    equivalent: 'Every minute',
+    equivalent: '每分钟',
   },
   {
     symbol: '-',
-    meaning: 'Range of values',
+    meaning: '取值范围',
     example: '1-10 * * *',
-    equivalent: 'Minutes 1 through 10',
+    equivalent: '第 1 到第 10 分钟',
   },
   {
     symbol: ',',
-    meaning: 'List of values',
+    meaning: '取值列表',
     example: '1,10 * * *',
-    equivalent: 'At minutes 1 and 10',
+    equivalent: '在第 1 和第 10 分钟',
   },
   {
     symbol: '/',
-    meaning: 'Step values',
+    meaning: '步进值',
     example: '*/10 * * *',
-    equivalent: 'Every 10 minutes',
+    equivalent: '每 10 分钟',
   },
   {
     symbol: '@yearly',
-    meaning: 'Once every year at midnight of 1 January',
+    meaning: '每年 1 月 1 日午夜执行一次',
     example: '@yearly',
     equivalent: '0 0 1 1 *',
   },
   {
     symbol: '@annually',
-    meaning: 'Same as @yearly',
+    meaning: '同 @yearly',
     example: '@annually',
     equivalent: '0 0 1 1 *',
   },
   {
     symbol: '@monthly',
-    meaning: 'Once a month at midnight on the first day',
+    meaning: '每月第一天午夜执行一次',
     example: '@monthly',
     equivalent: '0 0 1 * *',
   },
   {
     symbol: '@weekly',
-    meaning: 'Once a week at midnight on Sunday morning',
+    meaning: '每周日午夜执行一次',
     example: '@weekly',
     equivalent: '0 0 * * 0',
   },
   {
     symbol: '@daily',
-    meaning: 'Once a day at midnight',
+    meaning: '每天午夜执行一次',
     example: '@daily',
     equivalent: '0 0 * * *',
   },
   {
     symbol: '@midnight',
-    meaning: 'Same as @daily',
+    meaning: '同 @daily',
     example: '@midnight',
     equivalent: '0 0 * * *',
   },
   {
     symbol: '@hourly',
-    meaning: 'Once an hour at the beginning of the hour',
+    meaning: '每小时整点执行一次',
     example: '@hourly',
     equivalent: '0 * * * *',
   },
   {
     symbol: '@reboot',
-    meaning: 'Run at startup',
+    meaning: '系统启动时执行',
     example: '',
     equivalent: '',
   },
@@ -99,92 +183,33 @@ const cronString = computed(() => {
   return ' ';
 });
 
-const cronValidationRules = [
-  {
-    validator: (value: string) => isCronValid(value),
-    message: 'This cron is invalid',
-  },
-];
+const cronValidation = useValidation({
+  source: cron,
+  rules: [
+    {
+      validator: (value) => isCronValid(value),
+      message: 'Cron 表达式无效',
+    },
+  ],
+});
 </script>
 
-<template>
-  <c-card>
-    <div mx-auto max-w-sm>
-      <c-input-text
-        v-model:value="cron"
-        size="large"
-        placeholder="* * * * *"
-        :validation-rules="cronValidationRules"
-        mb-3
-      />
-    </div>
-
-    <div class="cron-string">
-      {{ cronString }}
-    </div>
-
-    <n-divider />
-
-    <div flex justify-center>
-      <n-form :show-feedback="false" label-width="170" label-placement="left">
-        <n-form-item label="Verbose">
-          <n-switch v-model:value="cronstrueConfig.verbose" />
-        </n-form-item>
-        <n-form-item label="Use 24 hour time format">
-          <n-switch v-model:value="cronstrueConfig.use24HourTimeFormat" />
-        </n-form-item>
-        <n-form-item label="Days start at 0">
-          <n-switch v-model:value="cronstrueConfig.dayOfWeekStartIndexZero" />
-        </n-form-item>
-      </n-form>
-    </div>
-  </c-card>
-  <c-card>
-    <pre>
-┌──────────── [optional] seconds (0 - 59)
-| ┌────────── minute (0 - 59)
-| | ┌──────── hour (0 - 23)
-| | | ┌────── day of month (1 - 31)
-| | | | ┌──── month (1 - 12) OR jan,feb,mar,apr ...
-| | | | | ┌── day of week (0 - 6, sunday=0) OR sun,mon ...
-| | | | | |
-* * * * * * command</pre>
-
-    <div v-if="styleStore.isSmallScreen">
-      <c-card v-for="{ symbol, meaning, example, equivalent } in helpers" :key="symbol" mb-3 important:border-none>
-        <div>
-          Symbol: <strong>{{ symbol }}</strong>
-        </div>
-        <div>
-          Meaning: <strong>{{ meaning }}</strong>
-        </div>
-        <div>
-          Example:
-          <strong><code>{{ example }}</code></strong>
-        </div>
-        <div>
-          Equivalent: <strong>{{ equivalent }}</strong>
-        </div>
-      </c-card>
-    </div>
-
-    <c-table v-else :data="helpers" />
-  </c-card>
-</template>
-
 <style lang="less" scoped>
-::v-deep(input) {
+.cron {
   font-size: 30px;
   font-family: monospace;
-  padding: 5px;
-  text-align: center;
 }
 
 .cron-string {
   text-align: center;
   font-size: 22px;
   opacity: 0.8;
-  margin: 5px 0 15px;
+  margin: 16px 0;
+}
+
+.cron-options {
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 pre {

@@ -1,8 +1,46 @@
+<template>
+  <n-card>
+    <n-form label-placement="left" label-width="200" :show-feedback="false">
+      <n-form-item label="段落数">
+        <n-slider v-model:value="paragraphs" :step="1" :min="1" :max="20" />
+      </n-form-item>
+      <n-form-item label="每段句子数">
+        <n-slider v-model:value="sentences" range :step="1" :min="1" :max="50" />
+      </n-form-item>
+      <n-form-item label="每句单词数">
+        <n-slider v-model:value="words" range :step="1" :min="1" :max="50" />
+      </n-form-item>
+      <n-form-item label="以 lorem ipsum 开头?">
+        <n-switch v-model:value="startWithLoremIpsum" />
+      </n-form-item>
+      <n-form-item label="输出为 HTML?">
+        <n-switch v-model:value="asHTML" />
+      </n-form-item>
+
+      <n-space justify="center" style="margin: 12px 0 16px">
+        <n-button type="primary" secondary @click="regenerate">重新生成</n-button>
+        <n-button secondary @click="copy">复制结果</n-button>
+      </n-space>
+    </n-form>
+
+    <n-form-item label="生成的 Lorem ipsum 文本" label-placement="top">
+      <n-input
+        :value="loremIpsumText"
+        type="textarea"
+        placeholder="Lorem ipsum 文本..."
+        readonly
+        :autosize="{ minRows: 6 }"
+        spellcheck="false"
+      />
+    </n-form-item>
+  </n-card>
+</template>
+
 <script setup lang="ts">
-import { generateLoremIpsum } from './lorem-ipsum-generator.service';
 import { useCopy } from '@/composable/copy';
+import { ref, computed } from 'vue';
 import { randIntFromInterval } from '@/utils/random';
-import { computedRefreshable } from '@/composable/computedRefreshable';
+import { generateLoremIpsum } from './lorem-ipsum-generator.service';
 
 const paragraphs = ref(1);
 const sentences = ref([3, 8]);
@@ -10,46 +48,22 @@ const words = ref([8, 15]);
 const startWithLoremIpsum = ref(true);
 const asHTML = ref(false);
 
-const [loremIpsumText, refreshLoremIpsum] = computedRefreshable(() =>
-  generateLoremIpsum({
+const tick = ref(0);
+
+const loremIpsumText = computed(() => {
+  void tick.value;
+  return generateLoremIpsum({
     paragraphCount: paragraphs.value,
     asHTML: asHTML.value,
     sentencePerParagraph: randIntFromInterval(sentences.value[0], sentences.value[1]),
     wordCount: randIntFromInterval(words.value[0], words.value[1]),
     startWithLoremIpsum: startWithLoremIpsum.value,
-  }),
-);
+  });
+});
 
-const { copy } = useCopy({ source: loremIpsumText, text: 'Lorem ipsum copied to the clipboard' });
+function regenerate() {
+  tick.value++;
+}
+
+const { copy } = useCopy({ source: loremIpsumText, text: 'Lorem ipsum 已复制到剪贴板' });
 </script>
-
-<template>
-  <c-card>
-    <n-form-item label="Paragraphs" :show-feedback="false" label-width="200" label-placement="left">
-      <n-slider v-model:value="paragraphs" :step="1" :min="1" :max="20" />
-    </n-form-item>
-    <n-form-item label="Sentences per paragraph" :show-feedback="false" label-width="200" label-placement="left">
-      <n-slider v-model:value="sentences" range :step="1" :min="1" :max="50" />
-    </n-form-item>
-    <n-form-item label="Words per sentence" :show-feedback="false" label-width="200" label-placement="left">
-      <n-slider v-model:value="words" range :step="1" :min="1" :max="50" />
-    </n-form-item>
-    <n-form-item label="Start with lorem ipsum ?" :show-feedback="false" label-width="200" label-placement="left">
-      <n-switch v-model:value="startWithLoremIpsum" />
-    </n-form-item>
-    <n-form-item label="As html ?" :show-feedback="false" label-width="200" label-placement="left">
-      <n-switch v-model:value="asHTML" />
-    </n-form-item>
-
-    <c-input-text :value="loremIpsumText" multiline placeholder="Your lorem ipsum..." readonly mt-5 rows="5" />
-
-    <div mt-5 flex justify-center gap-3>
-      <c-button autofocus @click="copy()">
-        Copy
-      </c-button>
-      <c-button @click="refreshLoremIpsum">
-        Refresh
-      </c-button>
-    </div>
-  </c-card>
-</template>

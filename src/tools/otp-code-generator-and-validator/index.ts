@@ -1,11 +1,10 @@
 import { DeviceMobile } from '@vicons/tabler';
 import { defineTool } from '../tool';
-import { translate } from '@/plugins/i18n.plugin';
 
 export const tool = defineTool({
-  name: translate('tools.otp-generator.title'),
+  name: 'OTP 一次性密码',
   path: '/otp-generator',
-  description: translate('tools.otp-generator.description'),
+  description: '生成并校验基于时间的一次性密码(TOTP),用于多因素认证。',
   keywords: [
     'otp',
     'code',

@@ -1,21 +1,21 @@
 import type { OGSchemaType } from '../OGSchemaType.type';
 
 export const profile: OGSchemaType = {
-  name: 'Profile',
+  name: '个人资料',
   elements: [
     {
       type: 'input',
-      label: 'First name',
-      placeholder: 'Enter the first name of the person...',
+      label: '名字',
+      placeholder: '输入此人的名字...',
       key: 'profile:first_name',
     },
     {
       type: 'input',
-      label: 'Last name',
-      placeholder: 'Enter the last name of the person...',
+      label: '姓氏',
+      placeholder: '输入此人的姓氏...',
       key: 'profile:last_name',
     },
-    { type: 'input', label: 'Username', placeholder: 'Enter the username of the person...', key: 'profile:username' },
-    { type: 'input', label: 'Gender', placeholder: 'Enter the gender of the person...', key: 'profile:gender' },
+    { type: 'input', label: '用户名', placeholder: '输入此人的用户名...', key: 'profile:username' },
+    { type: 'input', label: '性别', placeholder: '输入此人的性别...', key: 'profile:gender' },
   ],
 };

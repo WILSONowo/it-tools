@@ -1,68 +1,75 @@
-<script setup lang="ts">
-import { compareSync, hashSync } from 'bcryptjs';
-import { useThemeVars } from 'naive-ui';
-import { useCopy } from '@/composable/copy';
+<template>
+  <n-card title="哈希">
+    <n-form label-placement="top">
+      <n-form-item label="字符串">
+        <n-input
+          v-model:value="input"
+          placeholder="要使用 bcrypt 哈希的字符串..."
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </n-form-item>
+      <n-form-item label="盐迭代次数" label-placement="left" label-width="120" style="margin-top: 16px">
+        <n-input-number v-model:value="saltCount" placeholder="盐迭代次数..." :max="10" :min="0" style="width: 200px" />
+      </n-form-item>
+      <n-form-item label="哈希结果" label-placement="top" style="margin-top: 16px">
+        <n-input
+          :value="hashed"
+          readonly
+          type="textarea"
+          :autosize="{ minRows: 2 }"
+          style="font-family: 'Consolas', monospace; font-size: 14px"
+        />
+      </n-form-item>
+    </n-form>
+    <n-space justify="center" style="margin-top: 16px">
+      <n-button secondary @click="copy"> 复制哈希 </n-button>
+    </n-space>
+  </n-card>
 
-const themeVars = useThemeVars();
+  <n-card title="比对字符串与哈希">
+    <n-form label-placement="top">
+      <n-form-item label="字符串">
+        <n-input
+          v-model:value="compareString"
+          placeholder="用于比对的字符串..."
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </n-form-item>
+      <n-form-item label="哈希" label-placement="top" style="margin-top: 16px">
+        <n-input
+          v-model:value="compareHash"
+          placeholder="用于比对的哈希..."
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </n-form-item>
+      <n-form-item label="是否匹配" label-placement="top" style="margin-top: 16px" :show-feedback="false">
+        <n-tag v-if="compareMatch" :bordered="false" type="success" round>是</n-tag>
+        <n-tag v-else :bordered="false" type="error" round>否</n-tag>
+      </n-form-item>
+    </n-form>
+  </n-card>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { hashSync, compareSync } from 'bcryptjs';
+import { useCopy } from '@/composable/copy';
 
 const input = ref('');
 const saltCount = ref(10);
 const hashed = computed(() => hashSync(input.value, saltCount.value));
-const { copy } = useCopy({ source: hashed, text: 'Hashed string copied to the clipboard' });
+const { copy } = useCopy({ source: hashed, text: '哈希字符串已复制到剪贴板' });
 
 const compareString = ref('');
 const compareHash = ref('');
 const compareMatch = computed(() => compareSync(compareString.value, compareHash.value));
 </script>
-
-<template>
-  <c-card title="Hash">
-    <c-input-text
-      v-model:value="input"
-      placeholder="Your string to bcrypt..."
-      raw-text
-      label="Your string: "
-      label-position="left"
-      label-align="right"
-      label-width="120px"
-      mb-2
-    />
-    <n-form-item label="Salt count: " label-placement="left" label-width="120">
-      <n-input-number v-model:value="saltCount" placeholder="Salt rounds..." :max="100" :min="0" w-full />
-    </n-form-item>
-
-    <c-input-text :value="hashed" readonly text-center />
-
-    <div mt-5 flex justify-center>
-      <c-button @click="copy()">
-        Copy hash
-      </c-button>
-    </div>
-  </c-card>
-
-  <c-card title="Compare string with hash">
-    <n-form label-width="120">
-      <n-form-item label="Your string: " label-placement="left">
-        <c-input-text v-model:value="compareString" placeholder="Your string to compare..." raw-text />
-      </n-form-item>
-      <n-form-item label="Your hash: " label-placement="left">
-        <c-input-text v-model:value="compareHash" placeholder="Your hash to compare..." raw-text />
-      </n-form-item>
-      <n-form-item label="Do they match ? " label-placement="left" :show-feedback="false">
-        <div class="compare-result" :class="{ positive: compareMatch }">
-          {{ compareMatch ? 'Yes' : 'No' }}
-        </div>
-      </n-form-item>
-    </n-form>
-  </c-card>
-</template>
-
-<style lang="less" scoped>
-.compare-result {
-  color: v-bind('themeVars.errorColor');
-
-  &.positive {
-    color: v-bind('themeVars.successColor');
-  }
-}
-</style>

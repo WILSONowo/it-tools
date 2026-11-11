@@ -5,16 +5,16 @@ export function convertBase({ value, fromBase, toBase }: { value: string; fromBa
   let decValue = value
     .split('')
     .reverse()
-    .reduce((carry: bigint, digit: string, index: number) => {
+    .reduce((carry: number, digit: string, index: number) => {
       if (!fromRange.includes(digit)) {
-        throw new Error(`Invalid digit "${digit}" for base ${fromBase}.`);
+        throw new Error('数字 "' + digit + '" 对于 ' + fromBase + ' 进制无效。');
       }
-      return (carry += BigInt(fromRange.indexOf(digit)) * BigInt(fromBase) ** BigInt(index));
-    }, 0n);
+      return (carry += fromRange.indexOf(digit) * Math.pow(fromBase, index));
+    }, 0);
   let newValue = '';
   while (decValue > 0) {
-    newValue = toRange[Number(decValue % BigInt(toBase))] + newValue;
-    decValue = (decValue - (decValue % BigInt(toBase))) / BigInt(toBase);
+    newValue = toRange[decValue % toBase] + newValue;
+    decValue = (decValue - (decValue % toBase)) / toBase;
   }
   return newValue || '0';
 }

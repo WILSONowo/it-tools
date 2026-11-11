@@ -1,90 +1,86 @@
+<template>
+  <n-grid y-gap="16" cols="1 800:2" x-gap="16" responsive="screen">
+    <n-gi>
+      <n-card title="字符串转 Base64">
+        <n-form label-placement="top">
+          <n-form-item label="待编码的字符串">
+            <n-input
+              v-model:value="textInput"
+              type="textarea"
+              placeholder="在此输入字符串..."
+              :autosize="{ minRows: 4 }"
+              spellcheck="false"
+            />
+          </n-form-item>
+
+          <n-form-item label="字符串的 Base64" label-placement="top" style="margin-top: 16px">
+            <n-input
+              :value="base64Output"
+              type="textarea"
+              readonly
+              placeholder="输入字符串的 Base64 编码将显示在这里"
+              :autosize="{ minRows: 4 }"
+              spellcheck="false"
+              style="font-family: monospace; font-size: 13px"
+            />
+          </n-form-item>
+        </n-form>
+
+        <n-space justify="center" style="margin-top: 16px">
+          <n-button secondary @click="copyTextBase64()">复制 Base64</n-button>
+        </n-space>
+      </n-card>
+    </n-gi>
+    <n-gi>
+      <n-card title="Base64 转字符串">
+        <n-form label-placement="top">
+          <n-form-item label="待解码的 Base64 字符串" style="margin: 0" v-bind="b64Validation.attrs">
+            <n-input
+              v-model:value="base64Input"
+              type="textarea"
+              placeholder="待解码的 Base64 字符串..."
+              :autosize="{ minRows: 4 }"
+              spellcheck="false"
+              style="font-family: monospace; font-size: 13px"
+            />
+          </n-form-item>
+
+          <n-form-item label="解码后的字符串" label-placement="top" style="margin-top: 16px">
+            <n-input
+              :value="textOutput"
+              type="textarea"
+              readonly
+              placeholder="解码结果将显示在这里"
+              :autosize="{ minRows: 4 }"
+              spellcheck="false"
+            />
+          </n-form-item>
+        </n-form>
+
+        <n-space justify="center" style="margin-top: 16px">
+          <n-button secondary @click="copyText()">复制解码结果</n-button>
+        </n-space>
+      </n-card>
+    </n-gi>
+  </n-grid>
+</template>
+
 <script setup lang="ts">
 import { useCopy } from '@/composable/copy';
+import { useValidation } from '@/composable/validation';
 import { base64ToText, isValidBase64, textToBase64 } from '@/utils/base64';
 import { withDefaultOnError } from '@/utils/defaults';
-
-const encodeUrlSafe = useStorage('base64-string-converter--encode-url-safe', false);
-const decodeUrlSafe = useStorage('base64-string-converter--decode-url-safe', false);
+import { computed, ref } from 'vue';
 
 const textInput = ref('');
-const base64Output = computed(() => textToBase64(textInput.value, { makeUrlSafe: encodeUrlSafe.value }));
-const { copy: copyTextBase64 } = useCopy({ source: base64Output, text: 'Base64 string copied to the clipboard' });
+const base64Output = computed(() => textToBase64(textInput.value));
+const { copy: copyTextBase64 } = useCopy({ source: base64Output, text: 'Base64 字符串已复制到剪贴板' });
 
 const base64Input = ref('');
-const textOutput = computed(() =>
-  withDefaultOnError(() => base64ToText(base64Input.value.trim(), { makeUrlSafe: decodeUrlSafe.value }), ''),
-);
-const { copy: copyText } = useCopy({ source: textOutput, text: 'String copied to the clipboard' });
-const b64ValidationRules = [
-  {
-    message: 'Invalid base64 string',
-    validator: (value: string) => isValidBase64(value.trim(), { makeUrlSafe: decodeUrlSafe.value }),
-  },
-];
-const b64ValidationWatch = [decodeUrlSafe];
+const textOutput = computed(() => withDefaultOnError(() => base64ToText(base64Input.value.trim()), ''));
+const { copy: copyText } = useCopy({ source: textOutput, text: '字符串已复制到剪贴板' });
+const b64Validation = useValidation({
+  source: base64Input,
+  rules: [{ message: '无效的 Base64 字符串', validator: (value) => isValidBase64(value.trim()) }],
+});
 </script>
-
-<template>
-  <c-card title="String to base64">
-    <n-form-item label="Encode URL safe" label-placement="left">
-      <n-switch v-model:value="encodeUrlSafe" />
-    </n-form-item>
-    <c-input-text
-      v-model:value="textInput"
-      multiline
-      placeholder="Put your string here..."
-      rows="5"
-      label="String to encode"
-      raw-text
-      mb-5
-    />
-
-    <c-input-text
-      label="Base64 of string"
-      :value="base64Output"
-      multiline
-      readonly
-      placeholder="The base64 encoding of your string will be here"
-      rows="5"
-      mb-5
-    />
-
-    <div flex justify-center>
-      <c-button @click="copyTextBase64()">
-        Copy base64
-      </c-button>
-    </div>
-  </c-card>
-
-  <c-card title="Base64 to string">
-    <n-form-item label="Decode URL safe" label-placement="left">
-      <n-switch v-model:value="decodeUrlSafe" />
-    </n-form-item>
-    <c-input-text
-      v-model:value="base64Input"
-      multiline
-      placeholder="Your base64 string..."
-      rows="5"
-      :validation-rules="b64ValidationRules"
-      :validation-watch="b64ValidationWatch"
-      label="Base64 string to decode"
-      mb-5
-    />
-
-    <c-input-text
-      v-model:value="textOutput"
-      label="Decoded string"
-      placeholder="The decoded string will be here"
-      multiline
-      rows="5"
-      readonly
-      mb-5
-    />
-
-    <div flex justify-center>
-      <c-button @click="copyText()">
-        Copy decoded string
-      </c-button>
-    </div>
-  </c-card>
-</template>

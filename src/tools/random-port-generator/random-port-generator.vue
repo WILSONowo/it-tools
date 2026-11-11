@@ -1,34 +1,37 @@
+<template>
+  <n-card title="随机端口生成器">
+    <n-form label-placement="left" label-width="120">
+      <n-form-item label="随机端口">
+        <div class="port">{{ port }}</div>
+      </n-form-item>
+    </n-form>
+    <n-space justify="center" style="margin-top: 4px">
+      <n-button type="primary" @click="refreshPort">刷新</n-button>
+      <n-button secondary :disabled="!port" @click="copy">复制</n-button>
+    </n-space>
+  </n-card>
+</template>
+
 <script setup lang="ts">
-import { generatePort } from './random-port-generator.model';
 import { computedRefreshable } from '@/composable/computedRefreshable';
 import { useCopy } from '@/composable/copy';
+import { generatePort } from './random-port-generator.model';
 
 const [port, refreshPort] = computedRefreshable(() => String(generatePort()));
 
-const { copy } = useCopy({ source: port, text: 'Port copied to the clipboard' });
+const { copy } = useCopy({ source: port, text: '端口已复制到剪贴板' });
 </script>
-
-<template>
-  <c-card>
-    <div class="port">
-      {{ port }}
-    </div>
-    <div flex justify-center gap-3>
-      <c-button @click="copy()">
-        Copy
-      </c-button>
-      <c-button @click="refreshPort">
-        Refresh
-      </c-button>
-    </div>
-  </c-card>
-</template>
 
 <style lang="less" scoped>
 .port {
-  text-align: center;
-  font-size: 26px;
-  font-weight: 400;
-  margin: 10px 0 25px;
+  display: inline-block;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 32px;
+  line-height: 1.4;
+  color: var(--primary-color, inherit);
+  background: rgba(128, 128, 128, 0.08);
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: 4px;
+  padding: 4px 20px;
 }
 </style>

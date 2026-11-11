@@ -1,11 +1,3 @@
-<script setup lang="ts">
-import { useStyleStore } from '@/stores/style.store';
-
-const styleStore = useStyleStore();
-const { isMenuCollapsed, isSmallScreen } = toRefs(styleStore);
-const siderPosition = computed(() => (isSmallScreen.value ? 'absolute' : 'static'));
-</script>
-
 <template>
   <n-layout has-sider>
     <n-layout-sider
@@ -26,6 +18,15 @@ const siderPosition = computed(() => (isSmallScreen.value ? 'absolute' : 'static
     </n-layout>
   </n-layout>
 </template>
+
+<script setup lang="ts">
+import { useStyleStore } from '@/stores/style.store';
+import { toRefs, computed } from 'vue';
+
+const styleStore = useStyleStore();
+const { isMenuCollapsed, isSmallScreen } = toRefs(styleStore);
+const siderPosition = computed(() => (isSmallScreen.value ? 'absolute' : 'static'));
+</script>
 
 <style lang="less" scoped>
 .overlay {

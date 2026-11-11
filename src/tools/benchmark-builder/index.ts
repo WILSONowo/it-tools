@@ -1,11 +1,10 @@
 import { SpeedFilled } from '@vicons/material';
 import { defineTool } from '../tool';
-import { translate } from '@/plugins/i18n.plugin';
 
 export const tool = defineTool({
-  name: translate('tools.benchmark-builder.title'),
+  name: '基准测试构建器',
   path: '/benchmark-builder',
-  description: translate('tools.benchmark-builder.description'),
+  description: '用这个简单的在线基准测试,轻松比较任务的执行时间。',
   keywords: ['benchmark', 'builder', 'execution', 'duration', 'mean', 'variance'],
   component: () => import('./benchmark-builder.vue'),
   icon: SpeedFilled,

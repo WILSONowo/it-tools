@@ -1,11 +1,10 @@
 import { DeviceDesktop } from '@vicons/tabler';
 import { defineTool } from '../tool';
-import { translate } from '@/plugins/i18n.plugin';
 
 export const tool = defineTool({
-  name: translate('tools.device-information.title'),
+  name: '设备信息',
   path: '/device-information',
-  description: translate('tools.device-information.description'),
+  description: '获取当前设备的信息(屏幕尺寸、像素比、User-Agent 等)。',
   keywords: [
     'device',
     'information',

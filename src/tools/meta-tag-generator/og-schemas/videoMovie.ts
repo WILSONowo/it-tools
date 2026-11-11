@@ -1,29 +1,29 @@
 import type { OGSchemaType } from '../OGSchemaType.type';
 
 export const videoMovie: OGSchemaType = {
-  name: 'Movie details',
+  name: '电影详情',
   elements: [
     {
       type: 'input-multiple',
-      label: 'Actor',
+      label: '演员',
       key: 'video:actor',
-      placeholder: 'Name of the actress/actor...',
+      placeholder: '男演员/女演员的姓名...',
     },
     // { type: 'input', label: 'Actor role', key: 'video:actor:role', placeholder: 'The role they played...' },
     {
       type: 'input-multiple',
-      label: 'Director',
+      label: '导演',
       key: 'video:director',
-      placeholder: 'Name of the director...',
+      placeholder: '导演的姓名...',
     },
-    { type: 'input-multiple', label: 'Writer', key: 'video:writer', placeholder: 'Writers of the movie...' },
-    { type: 'input', label: 'Duration', key: 'video:duration', placeholder: 'The movie\'s length in seconds...' },
+    { type: 'input-multiple', label: '编剧', key: 'video:writer', placeholder: '这部电影的编剧...' },
+    { type: 'input', label: '时长', key: 'video:duration', placeholder: '电影的长度（秒）...' },
     {
       type: 'input',
-      label: 'Release date',
+      label: '发行日期',
       key: 'video:release_date',
-      placeholder: 'The date the movie was released...',
+      placeholder: '这部电影的发行日期...',
     },
-    { type: 'input', label: 'Tag', key: 'video:tag', placeholder: 'Tag words associated with this movie...' },
+    { type: 'input', label: '标签', key: 'video:tag', placeholder: '与这部电影关联的关键词标签...' },
   ],
 };

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.describe('Tool - Token generator', () => {
   test.beforeEach(async ({ page }) => {
@@ -6,13 +6,13 @@ test.describe('Tool - Token generator', () => {
   });
 
   test('Has title', async ({ page }) => {
-    await expect(page).toHaveTitle('Token generator - IT Tools');
+    await expect(page).toHaveTitle('随机字符串生成器 - IT Tools');
   });
 
   test('New token on refresh', async ({ page }) => {
-    const initialToken = await page.getByPlaceholder('The token...').inputValue();
-    await page.getByRole('button', { name: 'Refresh' }).click();
-    const newToken = await page.getByPlaceholder('The token...').inputValue();
+    const initialToken = await page.locator('.result-box').innerText();
+    await page.getByRole('button', { name: '生成', exact: true }).click();
+    const newToken = await page.locator('.result-box').innerText();
 
     expect(newToken).not.toEqual(initialToken);
   });

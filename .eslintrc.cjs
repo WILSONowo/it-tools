@@ -1,21 +1,40 @@
-/**
- * @type {import('eslint').Linter.Config}
- */
+/* eslint-env node */
+require('@rushstack/eslint-patch/modern-module-resolution');
+
 module.exports = {
   root: true,
-  extends: ['@antfu', './.eslintrc-auto-import.json', '@unocss'],
+  extends: [
+    'plugin:vue/vue3-essential',
+    'eslint:recommended',
+    'plugin:vue/vue3-recommended',
+    '@vue/eslint-config-typescript/recommended',
+    '@vue/eslint-config-prettier',
+    'plugin:import/recommended',
+    './.eslintrc-auto-import.json',
+    '@unocss',
+  ],
 
+  settings: {
+    'import/resolver': { typescript: { project: './tsconfig.app.json' } },
+  },
+  env: {
+    es2020: true,
+    'vue/setup-compiler-macros': true,
+  },
   rules: {
-    'curly': ['error', 'all'],
-    '@typescript-eslint/semi': ['error', 'always'],
-    '@typescript-eslint/no-use-before-define': ['error', { allowNamedExports: true, functions: false }],
-    'vue/no-empty-component-block': ['error'],
-    'no-restricted-imports': ['error', {
-      paths: [{
-        name: '@vueuse/core',
-        importNames: ['useClipboard'],
-        message: 'Please use local useCopy from src/composable/copy.ts instead of useClipboard.',
-      }],
-    }],
+    'vue/multi-word-component-names': ['off'],
+    'prettier/prettier': ['error'],
+    'import/no-duplicates': ['error', { considerQueryString: true }],
+    'import/order': ['error', { groups: [['builtin', 'external', 'internal']] }],
+    'import/extensions': [
+      'error',
+      'ignorePackages',
+      {
+        js: 'never',
+        ts: 'never',
+        tsx: 'never',
+      },
+    ],
+    'import/no-unresolved': ['error', { ignore: ['^virtual:'] }],
   },
 };

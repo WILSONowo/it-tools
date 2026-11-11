@@ -1,4 +1,8 @@
+// Duplicate issue with sub directory
+// eslint-disable-next-line import/no-duplicates
 import { formatDuration } from 'date-fns';
+// eslint-disable-next-line import/no-duplicates
+import { zhCN } from 'date-fns/locale';
 
 export function formatMsDuration(duration: number) {
   const ms = Math.floor(duration % 1000);
@@ -7,10 +11,13 @@ export function formatMsDuration(duration: number) {
   const hrs = Math.floor((((duration - ms) / 1000 - secs) / 60 - mins) / 60);
 
   return (
-    formatDuration({
-      hours: hrs,
-      minutes: mins,
-      seconds: secs,
-    }) + (ms > 0 ? ` ${ms} ms` : '')
+    formatDuration(
+      {
+        hours: hrs,
+        minutes: mins,
+        seconds: secs,
+      },
+      { locale: zhCN },
+    ) + (ms > 0 ? ` ${ms} 毫秒` : '')
   );
 }

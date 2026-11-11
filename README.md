@@ -18,6 +18,13 @@ You have an idea of a tool? Submit a [feature request](https://github.com/Corent
 
 Self host solutions for your homelab
 
+**Build this version:**
+
+```sh
+docker build -t it-tools .
+docker run --rm -p 8080:80 it-tools
+```
+
 **From docker hub:**
 
 ```sh
@@ -45,7 +52,6 @@ docker run -d --name it-tools --restart unless-stopped -p 8080:80 ghcr.io/corent
 - [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur)
 - [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
 - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-- [i18n Ally](https://marketplace.visualstudio.com/items?itemName=lokalise.i18n-ally)
 
 with the following settings:
 
@@ -54,9 +60,7 @@ with the following settings:
   "editor.formatOnSave": false,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
-  },
-  "i18n-ally.localesPaths": ["locales", "src/tools/*/locales"],
-  "i18n-ally.keystyle": "nested"
+  }
 }
 ```
 
@@ -74,7 +78,8 @@ If the standalone TypeScript plugin doesn't feel fast enough to you, Volar has a
 ### Project Setup
 
 ```sh
-pnpm install
+corepack enable
+pnpm install --frozen-lockfile
 ```
 
 ### Compile and Hot-Reload for Development
@@ -93,6 +98,14 @@ pnpm build
 
 ```sh
 pnpm test
+```
+
+### Run browser tests with [Playwright](https://playwright.dev/)
+
+```sh
+pnpm exec playwright install
+pnpm build
+pnpm test:e2e
 ```
 
 ### Lint with [ESLint](https://eslint.org/)

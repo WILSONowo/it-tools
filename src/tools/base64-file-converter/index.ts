@@ -1,11 +1,10 @@
 import { FileDigit } from '@vicons/tabler';
 import { defineTool } from '../tool';
-import { translate } from '@/plugins/i18n.plugin';
 
 export const tool = defineTool({
-  name: translate('tools.base64-file-converter.title'),
+  name: 'Base64 文件转换',
   path: '/base64-file-converter',
-  description: translate('tools.base64-file-converter.description'),
+  description: '将字符串、文件或图片转换为它们的 Base64 表示。',
   keywords: ['base64', 'converter', 'upload', 'image', 'file', 'conversion', 'web', 'data', 'format'],
   component: () => import('./base64-file-converter.vue'),
   icon: FileDigit,

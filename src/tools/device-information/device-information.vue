@@ -1,55 +1,75 @@
+<template>
+  <n-card v-for="{ name, information } in sections" :key="name" :title="name">
+    <n-form label-placement="top" :show-feedback="false">
+      <n-grid cols="1 400:2" x-gap="16" y-gap="8" responsive="screen">
+        <n-gi v-for="{ label, value: { value } } in information" :key="label">
+          <n-form-item :label="label" style="margin-bottom: 8px">
+            <n-input
+              :value="value ?? ''"
+              readonly
+              placeholder="未知"
+              :input-props="{ 'data-test-id': `device-information-${label}` }"
+            />
+          </n-form-item>
+        </n-gi>
+      </n-grid>
+    </n-form>
+  </n-card>
+</template>
+
 <script setup lang="ts">
 import { useWindowSize } from '@vueuse/core';
+import { computed } from 'vue';
 
 const { width, height } = useWindowSize();
 
 const sections = [
   {
-    name: 'Screen',
+    name: '屏幕',
     information: [
       {
-        label: 'Screen size',
+        label: '屏幕尺寸',
         value: computed(() => `${window.screen.availWidth} x ${window.screen.availHeight}`),
       },
       {
-        label: 'Orientation',
+        label: '方向',
         value: computed(() => window.screen.orientation.type),
       },
       {
-        label: 'Orientation angle',
+        label: '方向角度',
         value: computed(() => `${window.screen.orientation.angle}°`),
       },
       {
-        label: 'Color depth',
+        label: '色彩深度',
         value: computed(() => `${window.screen.colorDepth} bits`),
       },
       {
-        label: 'Pixel ratio',
+        label: '像素比',
         value: computed(() => `${window.devicePixelRatio} dppx`),
       },
       {
-        label: 'Window size',
+        label: '窗口大小',
         value: computed(() => `${width.value} x ${height.value}`),
       },
     ],
   },
   {
-    name: 'Device',
+    name: '设备',
     information: [
       {
-        label: 'Browser vendor',
+        label: '浏览器厂商',
         value: computed(() => navigator.vendor),
       },
       {
-        label: 'Languages',
+        label: '语言',
         value: computed(() => navigator.languages.join(', ')),
       },
       {
-        label: 'Platform',
+        label: '平台',
         value: computed(() => navigator.platform),
       },
       {
-        label: 'User agent',
+        label: '用户代理',
         value: computed(() => navigator.userAgent),
       },
     ],
@@ -57,33 +77,8 @@ const sections = [
 ];
 </script>
 
-<template>
-  <c-card v-for="{ name, information } in sections" :key="name" :title="name">
-    <n-grid cols="1 400:2" x-gap="12" y-gap="12">
-      <n-gi v-for="{ label, value: { value } } in information" :key="label" class="information">
-        <div class="label">
-          {{ label }}
-        </div>
-
-        <div class="value">
-          <n-ellipsis v-if="value">
-            {{ value }}
-          </n-ellipsis>
-          <div v-else class="undefined-value">
-            unknown
-          </div>
-        </div>
-      </n-gi>
-    </n-grid>
-  </c-card>
-</template>
-
 <style lang="less" scoped>
 .information {
-  padding: 14px 16px;
-  border-radius: 4px;
-  background-color: #aaaaaa11;
-
   .label {
     font-size: 14px;
     opacity: 0.8;

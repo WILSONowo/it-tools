@@ -1,6 +1,57 @@
+<template>
+  <div>
+    <n-form-item label="计算哈希的明文">
+      <n-input v-model:value="plainText" type="textarea" placeholder="输入要计算哈希的文本..." />
+    </n-form-item>
+    <n-form-item label="密钥">
+      <n-input v-model:value="secret" placeholder="输入密钥..." />
+    </n-form-item>
+    <n-space item-style="flex:1 1 0">
+      <n-form-item label="哈希函数">
+        <n-select
+          v-model:value="hashFunction"
+          placeholder="选择哈希函数..."
+          :options="Object.keys(algos).map((label) => ({ label, value: label }))"
+        />
+      </n-form-item>
+      <n-form-item label="输出编码">
+        <n-select
+          v-model:value="encoding"
+          placeholder="选择结果编码..."
+          :options="[
+            {
+              label: '二进制 (base 2)',
+              value: 'Bin',
+            },
+            {
+              label: '十六进制 (base 16)',
+              value: 'Hex',
+            },
+            {
+              label: 'Base64 (base 64)',
+              value: 'Base64',
+            },
+            {
+              label: 'Base64-url (base 64,使用 URL 安全字符)',
+              value: 'Base64url',
+            },
+          ]"
+        />
+      </n-form-item>
+    </n-space>
+    <n-form-item label="文本的 HMAC">
+      <n-input readonly :value="hmac" type="textarea" placeholder="HMAC 计算结果..." />
+    </n-form-item>
+    <n-space justify="center">
+      <n-button secondary @click="copy()">复制 HMAC</n-button>
+    </n-space>
+  </div>
+</template>
+
 <script setup lang="ts">
-import type { lib } from 'crypto-js';
+import { useCopy } from '@/composable/copy';
 import {
+  enc,
   HmacMD5,
   HmacRIPEMD160,
   HmacSHA1,
@@ -9,11 +60,10 @@ import {
   HmacSHA3,
   HmacSHA384,
   HmacSHA512,
-  enc,
+  lib,
 } from 'crypto-js';
-
+import { computed, ref } from 'vue';
 import { convertHexToBin } from '../hash-text/hash-text.service';
-import { useCopy } from '@/composable/copy';
 
 const algos = {
   MD5: HmacMD5,
@@ -44,48 +94,3 @@ const hmac = computed(() =>
 );
 const { copy } = useCopy({ source: hmac });
 </script>
-
-<template>
-  <div flex flex-col gap-4>
-    <c-input-text v-model:value="plainText" multiline raw-text placeholder="Plain text to compute the hash..." rows="3" autosize autofocus label="Plain text to compute the hash" />
-    <c-input-text v-model:value="secret" raw-text placeholder="Enter the secret key..." label="Secret key" clearable />
-
-    <div flex gap-2>
-      <c-select
-        v-model:value="hashFunction" label="Hashing function"
-        flex-1
-        placeholder="Select an hashing function..."
-        :options="Object.keys(algos).map((label) => ({ label, value: label }))"
-      />
-      <c-select
-        v-model:value="encoding" label="Output encoding"
-        flex-1
-        placeholder="Select the result encoding..."
-        :options="[
-          {
-            label: 'Binary (base 2)',
-            value: 'Bin',
-          },
-          {
-            label: 'Hexadecimal (base 16)',
-            value: 'Hex',
-          },
-          {
-            label: 'Base64 (base 64)',
-            value: 'Base64',
-          },
-          {
-            label: 'Base64-url (base 64 with url safe chars)',
-            value: 'Base64url',
-          },
-        ]"
-      />
-    </div>
-    <input-copyable v-model:value="hmac" type="textarea" placeholder="The result of the HMAC..." label="HMAC of your text" />
-    <div flex justify-center>
-      <c-button @click="copy()">
-        Copy HMAC
-      </c-button>
-    </div>
-  </div>
-</template>

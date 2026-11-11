@@ -1,16 +1,16 @@
 import type { OGSchemaType } from '../OGSchemaType.type';
 
 export const book: OGSchemaType = {
-  name: 'Book',
+  name: '图书',
   elements: [
-    { type: 'input', label: 'Author', key: 'book:author', placeholder: 'Who wrote this book...' },
-    { type: 'input', label: 'ISBN', key: 'book:isbn', placeholder: 'The International Standard Book Number...' },
+    { type: 'input', label: '作者', key: 'book:author', placeholder: '这本书的作者...' },
+    { type: 'input', label: 'ISBN', key: 'book:isbn', placeholder: '国际标准书号（ISBN）...' },
     {
       type: 'input',
-      label: 'Release date',
+      label: '发行日期',
       key: 'book:release_date',
-      placeholder: 'The date the book was released...',
+      placeholder: '这本书的发行日期...',
     },
-    { type: 'input', label: 'Tag', key: 'book:tag', placeholder: 'Tag words associated with this book...' },
+    { type: 'input', label: '标签', key: 'book:tag', placeholder: '与这本书关联的关键词标签...' },
   ],
 };

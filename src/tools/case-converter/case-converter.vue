@@ -1,4 +1,49 @@
+<template>
+  <n-card title="字符串大小写转换">
+    <n-form label-width="150" label-placement="left" :show-feedback="false">
+      <n-form-item label="输入字符串">
+        <n-input v-model:value="input" placeholder="输入要转换的字符串..." />
+      </n-form-item>
+
+      <n-form-item label="驼峰 camelCase">
+        <input-copyable :value="camelCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="首字母大写">
+        <input-copyable :value="capitalCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="全大写常量">
+        <input-copyable :value="constantCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="点号分隔">
+        <input-copyable :value="dotCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="标题式 (每词大写)">
+        <input-copyable :value="headerCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="去分隔小写">
+        <input-copyable :value="noCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="中划线小写">
+        <input-copyable :value="paramCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="帕斯卡 PascalCase">
+        <input-copyable :value="pascalCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="路径式 (斜杠)">
+        <input-copyable :value="pathCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="句子式 (句首大写)">
+        <input-copyable :value="sentenceCase(input, baseConfig)" />
+      </n-form-item>
+      <n-form-item label="下划线 snake_case">
+        <input-copyable :value="snakeCase(input, baseConfig)" />
+      </n-form-item>
+    </n-form>
+  </n-card>
+</template>
+
 <script setup lang="ts">
+import { ref } from 'vue';
 import {
   camelCase,
   capitalCase,
@@ -19,95 +64,4 @@ const baseConfig = {
 };
 
 const input = ref('lorem ipsum dolor sit amet');
-
-const formats = computed(() => [
-  {
-    label: 'Lowercase:',
-    value: input.value.toLocaleLowerCase(),
-  },
-  {
-    label: 'Uppercase:',
-    value: input.value.toLocaleUpperCase(),
-  },
-  {
-    label: 'Camelcase:',
-    value: camelCase(input.value, baseConfig),
-  },
-  {
-    label: 'Capitalcase:',
-    value: capitalCase(input.value, baseConfig),
-  },
-  {
-    label: 'Constantcase:',
-    value: constantCase(input.value, baseConfig),
-  },
-  {
-    label: 'Dotcase:',
-    value: dotCase(input.value, baseConfig),
-  },
-  {
-    label: 'Headercase:',
-    value: headerCase(input.value, baseConfig),
-  },
-  {
-    label: 'Nocase:',
-    value: noCase(input.value, baseConfig),
-  },
-  {
-    label: 'Paramcase:',
-    value: paramCase(input.value, baseConfig),
-  },
-  {
-    label: 'Pascalcase:',
-    value: pascalCase(input.value, baseConfig),
-  },
-  {
-    label: 'Pathcase:',
-    value: pathCase(input.value, baseConfig),
-  },
-  {
-    label: 'Sentencecase:',
-    value: sentenceCase(input.value, baseConfig),
-  },
-  {
-    label: 'Snakecase:',
-    value: snakeCase(input.value, baseConfig),
-  },
-  {
-    label: 'Mockingcase:',
-    value: input.value
-      .split('')
-      .map((char, index) => (index % 2 === 0 ? char.toUpperCase() : char.toLowerCase()))
-      .join(''),
-  },
-]);
-
-const inputLabelAlignmentConfig = {
-  labelPosition: 'left',
-  labelWidth: '120px',
-  labelAlign: 'right',
-};
 </script>
-
-<template>
-  <c-card>
-    <c-input-text
-      v-model:value="input"
-      label="Your string:"
-      placeholder="Your string..."
-      raw-text
-      v-bind="inputLabelAlignmentConfig"
-    />
-
-    <div my-16px divider />
-
-    <InputCopyable
-      v-for="format in formats"
-      :key="format.label"
-      :value="format.value"
-      :label="format.label"
-      v-bind="inputLabelAlignmentConfig"
-      mb-1
-    />
-  </c-card>
-</template>

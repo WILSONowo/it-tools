@@ -1,12 +1,9 @@
 # build stage
-FROM node:lts-alpine AS build-stage
-# Set environment variables for non-interactive npm installs
-ENV NPM_CONFIG_LOGLEVEL warn
-ENV CI true
+FROM node:20-alpine AS build-stage
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm i --frozen-lockfile
 COPY . .
+RUN npm install -g pnpm@8.15.9
+RUN pnpm i --frozen-lockfile
 RUN pnpm build
 
 # production stage

@@ -1,5 +1,28 @@
+<template>
+  <div>
+    <n-input-group v-for="[key, { title, unit }] in Object.entries(units)" :key="key" mb-3 w-full>
+      <n-input-group-label
+        style="width: 175px; flex: 0 0 175px; justify-content: flex-start; padding-left: 12px; white-space: nowrap"
+      >
+        {{ title }}
+      </n-input-group-label>
+
+      <n-input-number
+        v-model:value="units[key].ref"
+        style="flex: 1"
+        @update:value="() => update(key as TemperatureScale)"
+      />
+
+      <n-input-group-label style="width: 64px; flex: 0 0 64px">
+        {{ unit }}
+      </n-input-group-label>
+    </n-input-group>
+  </div>
+</template>
+
 <script setup lang="ts">
 import _ from 'lodash';
+import { reactive } from 'vue';
 import {
   convertCelsiusToKelvin,
   convertDelisleToKelvin,
@@ -24,64 +47,64 @@ const units = reactive<
     string | TemperatureScale,
     { title: string; unit: string; ref: number; toKelvin: (v: number) => number; fromKelvin: (v: number) => number }
   >
-      >({
-        kelvin: {
-          title: 'Kelvin',
-          unit: 'K',
-          ref: 0,
-          toKelvin: _.identity,
-          fromKelvin: _.identity,
-        },
-        celsius: {
-          title: 'Celsius',
-          unit: '°C',
-          ref: 0,
-          toKelvin: convertCelsiusToKelvin,
-          fromKelvin: convertKelvinToCelsius,
-        },
-        fahrenheit: {
-          title: 'Fahrenheit',
-          unit: '°F',
-          ref: 0,
-          toKelvin: convertFahrenheitToKelvin,
-          fromKelvin: convertKelvinToFahrenheit,
-        },
-        rankine: {
-          title: 'Rankine',
-          unit: '°R',
-          ref: 0,
-          toKelvin: convertRankineToKelvin,
-          fromKelvin: convertKelvinToRankine,
-        },
-        delisle: {
-          title: 'Delisle',
-          unit: '°De',
-          ref: 0,
-          toKelvin: convertDelisleToKelvin,
-          fromKelvin: convertKelvinToDelisle,
-        },
-        newton: {
-          title: 'Newton',
-          unit: '°N',
-          ref: 0,
-          toKelvin: convertNewtonToKelvin,
-          fromKelvin: convertKelvinToNewton,
-        },
-        reaumur: {
-          title: 'Réaumur',
-          unit: '°Ré',
-          ref: 0,
-          toKelvin: convertReaumurToKelvin,
-          fromKelvin: convertKelvinToReaumur,
-        },
-        romer: {
-          title: 'Rømer',
-          unit: '°Rø',
-          ref: 0,
-          toKelvin: convertRomerToKelvin,
-          fromKelvin: convertKelvinToRomer,
-        },
-      });
+>({
+  kelvin: {
+    title: '开尔文(Kelvin)',
+    unit: 'K',
+    ref: 0,
+    toKelvin: _.identity,
+    fromKelvin: _.identity,
+  },
+  celsius: {
+    title: '摄氏度(Celsius)',
+    unit: '°C',
+    ref: 0,
+    toKelvin: convertCelsiusToKelvin,
+    fromKelvin: convertKelvinToCelsius,
+  },
+  fahrenheit: {
+    title: '华氏度(Fahrenheit)',
+    unit: '°F',
+    ref: 0,
+    toKelvin: convertFahrenheitToKelvin,
+    fromKelvin: convertKelvinToFahrenheit,
+  },
+  rankine: {
+    title: '兰氏度(Rankine)',
+    unit: '°R',
+    ref: 0,
+    toKelvin: convertRankineToKelvin,
+    fromKelvin: convertKelvinToRankine,
+  },
+  delisle: {
+    title: '德利尔度(Delisle)',
+    unit: '°De',
+    ref: 0,
+    toKelvin: convertDelisleToKelvin,
+    fromKelvin: convertKelvinToDelisle,
+  },
+  newton: {
+    title: '牛顿度(Newton)',
+    unit: '°N',
+    ref: 0,
+    toKelvin: convertNewtonToKelvin,
+    fromKelvin: convertKelvinToNewton,
+  },
+  reaumur: {
+    title: '列氏度(Réaumur)',
+    unit: '°Ré',
+    ref: 0,
+    toKelvin: convertReaumurToKelvin,
+    fromKelvin: convertKelvinToReaumur,
+  },
+  romer: {
+    title: '罗氏度(Rømer)',
+    unit: '°Rø',
+    ref: 0,
+    toKelvin: convertRomerToKelvin,
+    fromKelvin: convertKelvinToRomer,
+  },
+});
 
 function update(key: TemperatureScale) {
   const { ref: value, toKelvin } = units[key];
@@ -99,22 +122,4 @@ function update(key: TemperatureScale) {
 update('kelvin');
 </script>
 
-<template>
-  <div>
-    <n-input-group v-for="[key, { title, unit }] in Object.entries(units)" :key="key" mb-3 w-full>
-      <n-input-group-label style="width: 100px">
-        {{ title }}
-      </n-input-group-label>
-
-      <n-input-number
-        v-model:value="units[key].ref"
-        style="flex: 1"
-        @update:value="() => update(key as TemperatureScale)"
-      />
-
-      <n-input-group-label style="width: 50px">
-        {{ unit }}
-      </n-input-group-label>
-    </n-input-group>
-  </div>
-</template>
+<style lang="less" scoped></style>

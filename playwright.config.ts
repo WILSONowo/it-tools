@@ -1,29 +1,31 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const isCI = !!process.env.CI;
-const baseUrl = process.env.BASE_URL || 'http://localhost:5050';
-const useWebServer = process.env.NO_WEB_SERVER !== 'true';
+/**
+ * Read environment variables from file.
+ * https://github.com/motdotla/dotenv
+ */
+// require('dotenv').config();
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './src',
-  testMatch: /\.e2e\.(spec\.)?ts$/,
+  testMatch: /.*\.e2e\.(spec\.)?ts/,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: isCI,
+  forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: isCI ? 2 : 0,
+  retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: isCI ? 1 : undefined,
+  workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: baseUrl,
+    baseURL: 'http://127.0.0.1:4173',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -49,17 +51,32 @@ export default defineConfig({
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
     },
+
+    /* Test against mobile viewports. */
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
+
+    /* Test against branded browsers. */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ..devices['Desktop Chrome'], channel: 'chrome' },
+    // },
   ],
 
   /* Run your local dev server before starting the tests */
-
-  ...(useWebServer
-    && {
-      webServer: {
-        command: 'npm run preview',
-        url: 'http://localhost:5050',
-        reuseExistingServer: !isCI,
-      },
-    }
-  ),
+  webServer: {
+    command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort',
+    url: 'http://127.0.0.1:4173',
+    reuseExistingServer: false,
+  },
 });
