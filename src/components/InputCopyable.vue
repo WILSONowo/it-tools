@@ -14,24 +14,23 @@
 </template>
 
 <script setup lang="ts">
-import { useVModel, useClipboard } from '@vueuse/core';
+import { useVModel } from '@vueuse/core';
 import { ContentCopyFilled } from '@vicons/material';
 import { ref } from 'vue';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const props = defineProps<{ value: string }>();
 const emit = defineEmits(['update:value']);
 
 const value = useVModel(props, 'value', emit);
-const tooltipText = ref('Copy to clipboard');
+const tooltipText = ref('复制到剪贴板');
 
-const { copy } = useClipboard({ source: value });
-
-function onCopyClicked() {
-  copy();
-  tooltipText.value = 'Copied !';
+async function onCopyClicked() {
+  const ok = await copyToClipboard(value.value ?? '');
+  tooltipText.value = ok ? '已复制' : '复制失败,请手动复制';
 
   setTimeout(() => {
-    tooltipText.value = 'Copy to clipboard';
+    tooltipText.value = '复制到剪贴板';
   }, 2000);
 }
 </script>

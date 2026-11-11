@@ -39,8 +39,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useClipboard } from '@vueuse/core';
 import { useMessage } from 'naive-ui';
+import { randomString } from '@/utils/random';
+import { useCopy } from '@/composable/copy';
 
 const casing = ref<'lower' | 'upper'>('lower');
 const length = ref(64);
@@ -53,20 +54,16 @@ const CHARS = '0123456789abcdef';
 function generate() {
   const lines: string[] = [];
   for (let i = 0; i < count.value; i++) {
-    let s = '';
-    for (let j = 0; j < length.value; j++) {
-      s += CHARS[Math.floor(Math.random() * 16)];
-    }
+    const s = randomString(CHARS, length.value);
     lines.push(casing.value === 'upper' ? s.toUpperCase() : s);
   }
   output.value = lines.join('\n');
 }
 
-const { copy: copyText } = useClipboard({ source: output });
+const { copy: copyText } = useCopy({ source: output });
 function copy() {
   if (!output.value) return;
   copyText();
-  message.success('已复制到剪贴板');
 }
 
 function hexToBytes(hex: string): Uint8Array {

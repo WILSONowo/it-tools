@@ -32,7 +32,7 @@
               <n-checkbox value="ip">IP 地址</n-checkbox>
             </n-gi>
             <n-gi>
-              <n-checkbox value="name">中文姓名(姓氏保留)</n-checkbox>
+              <n-checkbox value="name">中文姓名(“姓名/联系人”等标签后或单独成行,保留姓氏)</n-checkbox>
             </n-gi>
           </n-grid>
         </n-checkbox-group>
@@ -62,10 +62,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useCopy } from '@/composable/copy';
-import { maskText } from './data-masking.service';
+import { MASK_RULES, maskText } from './data-masking.service';
 
 const input = ref('联系人: 张三 电话: 13812345678 邮箱: zhangsan@example.com 身份证: 110101199001011234');
-const rules = ref<string[]>(['phone', 'card', 'idcard', 'email', 'ip', 'name']);
+const rules = ref<string[]>([...MASK_RULES]);
 
 const output = ref('');
 
@@ -75,7 +75,7 @@ function maskNow() {
 maskNow();
 
 function selectAll() {
-  rules.value = ['phone', 'card', 'idcard', 'email', 'ip', 'name'];
+  rules.value = [...MASK_RULES];
   maskNow();
 }
 

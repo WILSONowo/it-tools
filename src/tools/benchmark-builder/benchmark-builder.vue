@@ -82,7 +82,10 @@
 
 <script setup lang="ts">
 import { Trash, Plus } from '@vicons/tabler';
-import { useClipboard, useStorage } from '@vueuse/core';
+import { useStorage } from '@vueuse/core';
+import { useMessage } from 'naive-ui';
+import { copyToClipboard } from '@/utils/clipboard';
+import { COPY_FAILED_TEXT } from '@/composable/copy';
 import _ from 'lodash';
 import { computed } from 'vue';
 import { computeAverage, computeVariance, arrayToMarkdownTable } from './benchmark-builder.models';
@@ -129,7 +132,14 @@ const results = computed(() => {
     });
 });
 
-const { copy } = useClipboard();
+const message = useMessage();
+async function copy(text: string) {
+  if (await copyToClipboard(text)) {
+    message.success('已复制到剪贴板');
+  } else {
+    message.error(COPY_FAILED_TEXT);
+  }
+}
 
 const header = {
   title: '套件',

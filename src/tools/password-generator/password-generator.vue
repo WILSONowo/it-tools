@@ -30,7 +30,7 @@
       </n-form-item>
 
       <n-form-item label="包含字符">
-        <n-input v-model:value="include" placeholder="可选" style="max-width: 480px" />
+        <n-input v-model:value="include" placeholder="可选,每个字符都会出现在结果中" style="max-width: 480px" />
       </n-form-item>
 
       <n-form-item label="排除字符">
@@ -69,10 +69,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useClipboard } from '@vueuse/core';
+import { ref } from 'vue';
 import { useMessage } from 'naive-ui';
-import { shuffleString } from '@/utils/random';
+import { useCopy } from '@/composable/copy';
+import { type CharsetName, generateBatch } from './password-generator.service';
 
 const useLower = ref(true);
 const useUpper = ref(true);
@@ -85,64 +85,30 @@ const include = ref('');
 const exclude = ref('0oO1iIlLq9g');
 const result = ref('');
 
-const LOWERSET = 'abcdefghijklmnopqrstuvwxyz';
-const UPPERSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const NUMBERSET = '0123456789';
-const SYMBOLSET = '!@#$%^&*()-_=+[]{};:,.<>?/~';
-
 const message = useMessage();
 
-function buildAlphabet(): string {
-  let pool = '';
-  if (useLower.value) pool += LOWERSET;
-  if (useUpper.value) pool += UPPERSET;
-  if (useNumber.value) pool += NUMBERSET;
-  if (useSymbol.value) pool += SYMBOLSET;
-  if (include.value) pool += include.value;
-  if (exclude.value) {
-    for (const ch of exclude.value) pool = pool.split(ch).join('');
-  }
-  return [...new Set(pool.split(''))].join('');
-}
-
-function randomLen(): number {
-  if (lengthMax.value && lengthMax.value >= length.value) {
-    return length.value + Math.floor(Math.random() * (lengthMax.value - length.value + 1));
-  }
-  return length.value;
-}
-
-function generateOne(pool: string): string {
-  const len = randomLen();
-  const chars = pool.split('');
-  let out = '';
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  for (const ch of include.value) {
-    const idx = Math.floor(Math.random() * len);
-    out = out.slice(0, idx) + ch + out.slice(idx + 1);
-  }
-  return shuffleString(out);
+function selectedCharsets(): CharsetName[] {
+  const charsets: CharsetName[] = [];
+  if (useLower.value) charsets.push('lower');
+  if (useUpper.value) charsets.push('upper');
+  if (useNumber.value) charsets.push('number');
+  if (useSymbol.value) charsets.push('symbol');
+  return charsets;
 }
 
 function generate() {
-  const pool = buildAlphabet();
-  if (pool.length === 0) {
-    message.warning('请至少选择一种字符');
-    return;
-  }
-  const seen = new Set<string>();
-  const list: string[] = [];
-  let guard = 0;
-  const cap = Math.max(count.value * 50 + 500, 5000);
-  while (list.length < count.value && guard < cap) {
-    const pwd = generateOne(pool);
-    guard++;
-    if (!pwd) continue;
-    if (seen.has(pwd)) continue;
-    seen.add(pwd);
-    list.push(pwd);
-  }
-  const joined = list.join('\n');
+  const { values, warning } = generateBatch({
+    charsets: selectedCharsets(),
+    include: include.value,
+    exclude: exclude.value,
+    length: length.value,
+    lengthMax: lengthMax.value,
+    count: count.value,
+  });
+  if (warning) message.warning(warning);
+  if (values.length === 0) return;
+
+  const joined = values.join('\n');
   if (joined.length > 100000) {
     result.value = '';
     downloadText(joined, 'randompassword.txt');
@@ -154,18 +120,19 @@ function generate() {
 
 function downloadText(text: string, filename: string) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(a.href);
+  // Revoke later: revoking right after click() can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const { copy: copyText } = useClipboard({ source: result });
+const { copy: copyResult } = useCopy({ source: result, text: '已复制到剪贴板' });
 function copy() {
   if (!result.value) return;
-  copyText();
-  message.success('已复制到剪贴板');
+  copyResult();
 }
 function download() {
   if (!result.value) return;

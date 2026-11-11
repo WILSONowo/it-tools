@@ -29,13 +29,14 @@
 
 <script setup lang="ts">
 import { Copy } from '@vicons/tabler';
-import { useClipboard, useElementSize } from '@vueuse/core';
+import { useElementSize } from '@vueuse/core';
 import hljs from 'highlight.js/lib/core';
 import jsonHljs from 'highlight.js/lib/languages/json';
 import sqlHljs from 'highlight.js/lib/languages/sql';
 import xmlHljs from 'highlight.js/lib/languages/xml';
 import yamlHljs from 'highlight.js/lib/languages/yaml';
 import { ref, toRefs } from 'vue';
+import { copyToClipboard } from '@/utils/clipboard';
 
 hljs.registerLanguage('sql', sqlHljs);
 hljs.registerLanguage('json', jsonHljs);
@@ -54,18 +55,18 @@ const props = withDefaults(
     followHeightOf: null,
     language: 'txt',
     copyPlacement: 'top-right',
-    copyMessage: 'Copy to clipboard',
+    copyMessage: '复制到剪贴板',
   },
 );
 const { value, language, followHeightOf, copyPlacement, copyMessage } = toRefs(props);
-const { height } = followHeightOf ? useElementSize(followHeightOf) : { height: ref(null) };
+// followHeightOf is a ref (from toRefs); useElementSize handles a null element.
+const { height } = useElementSize(followHeightOf);
 
-const { copy } = useClipboard({ source: value });
 const tooltipText = ref(copyMessage.value);
 
-function onCopyClicked() {
-  copy();
-  tooltipText.value = 'Copied !';
+async function onCopyClicked() {
+  const ok = await copyToClipboard(value.value ?? '');
+  tooltipText.value = ok ? '已复制' : '复制失败,请手动复制';
 
   setTimeout(() => {
     tooltipText.value = copyMessage.value;

@@ -1,4 +1,9 @@
-import { shuffleString } from '@/utils/random';
+import { randomString } from '@/utils/random';
+
+const UPPERCASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const LOWERCASE = 'abcdefghijklmnopqrstuvwxyz';
+const NUMBERS = '0123456789';
+const SYMBOLS = '.,;:!?/-"\'#{([|\\@)]=}*+';
 
 export function createToken({
   withUppercase = true,
@@ -20,10 +25,10 @@ export function createToken({
   let allAlphabet =
     alphabet ??
     [
-      ...(withUppercase ? 'ABCDEFGHIJKLMOPQRSTUVWXYZ' : ''),
-      ...(withLowercase ? 'abcdefghijklmopqrstuvwxyz' : ''),
-      ...(withNumbers ? '0123456789' : ''),
-      ...(withSymbols ? '.,;:!?./-"\'#{([-|\\@)]=}*+' : ''),
+      ...(withUppercase ? UPPERCASE : ''),
+      ...(withLowercase ? LOWERCASE : ''),
+      ...(withNumbers ? NUMBERS : ''),
+      ...(withSymbols ? SYMBOLS : ''),
     ].join('');
 
   if (exclude.length > 0) {
@@ -34,5 +39,6 @@ export function createToken({
     return '';
   }
 
-  return shuffleString(allAlphabet.repeat(length)).substring(0, length);
+  // Each character is drawn independently with crypto.getRandomValues.
+  return randomString([...new Set(allAlphabet)], length);
 }

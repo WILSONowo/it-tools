@@ -94,5 +94,17 @@ describe('token-generator', () => {
       expect(token).toHaveLength(256);
       expect(token).toMatch(/^[a-zA-Z]+$/);
     });
+
+    it('uses the full alphabet, including N and n', () => {
+      const token = createToken({ withNumbers: false, withSymbols: false, length: 5000 });
+      expect(new Set(token).size).toBe(52);
+      expect(token).toContain('N');
+      expect(token).toContain('n');
+    });
+
+    it('honours a custom alphabet and exclusions', () => {
+      expect(createToken({ alphabet: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', length: 64 })).toMatch(/^[A-Z2-7]{64}$/);
+      expect(createToken({ alphabet: 'ab', exclude: 'a', length: 10 })).toBe('bbbbbbbbbb');
+    });
   });
 });
