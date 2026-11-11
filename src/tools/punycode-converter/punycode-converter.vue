@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import punycode from 'punycode';
+import { convertPunycode } from './punycode-converter.service';
 
 const input = ref('例子.测试');
 const output = ref('');
@@ -33,7 +33,7 @@ const error = ref('');
 
 function toPunycode() {
   try {
-    output.value = punycode.toASCII(input.value.trim());
+    output.value = convertPunycode(input.value, 'ascii');
     error.value = '';
   } catch (e) {
     output.value = '';
@@ -43,7 +43,7 @@ function toPunycode() {
 
 function toUnicode() {
   try {
-    output.value = punycode.toUnicode(input.value.trim());
+    output.value = convertPunycode(input.value, 'unicode');
     error.value = '';
   } catch (e) {
     output.value = '';

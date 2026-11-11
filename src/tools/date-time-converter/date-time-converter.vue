@@ -130,7 +130,7 @@ const formats: DateFormat[] = [
 ];
 
 const formatIndex = ref(6);
-const now = useNow();
+const now = useNow({ interval: 1000 });
 
 const normalizedDate = computed(() => {
   if (!inputDate.value) {

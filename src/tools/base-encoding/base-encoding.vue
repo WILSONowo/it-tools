@@ -48,8 +48,8 @@
             <ul style="padding-left: 18px; line-height: 1.9">
               <li><b>Base16</b>:即十六进制,每字节两位</li>
               <li><b>Base32</b>:RFC 4648,字母 A-Z + 数字 2-7,常用于密钥/OTP</li>
-              <li><b>Base58</b>:比特币字母表(去 0OIl),用于地址编码</li>
-              <li><b>Base62</b>:A-Z a-z 0-9,常用于短链/ID</li>
+              <li><b>Base58</b>:比特币字母表(去 0OIl),用于地址编码;每个前导 0x00 字节编码为一个 1</li>
+              <li><b>Base62</b>:字母表顺序为 0-9 A-Z a-z,常用于短链/ID;每个前导 0x00 字节编码为一个 0</li>
               <li><b>Base85</b>:ASCII85 变体(Adobe),4 字节→5 字符,比 Base64 紧凑</li>
             </ul>
           </n-text>

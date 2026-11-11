@@ -1,5 +1,5 @@
 export const natoAlphabet = [
-  'Alpha',
+  'Alfa',
   'Bravo',
   'Charlie',
   'Delta',
@@ -8,7 +8,7 @@ export const natoAlphabet = [
   'Golf',
   'Hotel',
   'India',
-  'Juliet',
+  'Juliett',
   'Kilo',
   'Lima',
   'Mike',

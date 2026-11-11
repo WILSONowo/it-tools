@@ -87,7 +87,7 @@ function codePointToEscape(codePoint: number): string {
 function toUnicode() {
   let result = '';
   for (const char of plainInput.value) {
-    const codePoint = char.codePointAt(0)!;
+    const codePoint = char.codePointAt(0) ?? 0;
     if (format.value === 'bmp' && codePoint > 0xffff) {
       // surrogate pair, e.g. 😀 -> \ud83d\ude00
       const code = char.charCodeAt(0).toString(16).padStart(4, '0');

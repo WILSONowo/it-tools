@@ -56,15 +56,15 @@
 </template>
 
 <script setup lang="ts">
-import { escape, unescape } from 'lodash';
 import { computed, ref } from 'vue';
 import { useCopy } from '@/composable/copy';
+import { decodeHtmlEntities, escapeHtmlEntities } from './html-entities.service';
 
 const escapeInput = ref('<title>IT Tool</title>');
-const escapeOutput = computed(() => escape(escapeInput.value));
+const escapeOutput = computed(() => escapeHtmlEntities(escapeInput.value));
 const { copy: copyEscaped } = useCopy({ source: escapeOutput });
 
 const unescapeInput = ref('&lt;title&gt;IT Tool&lt;/title');
-const unescapeOutput = computed(() => unescape(unescapeInput.value));
+const unescapeOutput = computed(() => decodeHtmlEntities(unescapeInput.value));
 const { copy: copyUnescaped } = useCopy({ source: unescapeOutput });
 </script>

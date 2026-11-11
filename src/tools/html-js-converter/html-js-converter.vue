@@ -38,7 +38,11 @@
       </n-tab-pane>
 
       <n-tab-pane name="js2html" tab="JS 字符串 → HTML">
-        <n-form-item label="JS 字符串">
+        <n-form-item
+          label="JS 字符串(支持 '…'、&quot;…&quot;、`…` 及用 + 拼接,不会执行代码)"
+          :feedback="jsToHtml.error"
+          :validation-status="jsToHtml.error ? 'error' : undefined"
+        >
           <n-input
             v-model:value="jsInput"
             type="textarea"
@@ -72,22 +76,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useCopy } from '@/composable/copy';
+import { type QuoteStyle, jsStringToText, textToJsString } from './html-js-converter.service';
 
 const htmlInput = ref('<div class="card">\n  Hello &amp; welcome\n</div>');
-const quote = ref<'double' | 'single' | 'template'>('double');
+const quote = ref<QuoteStyle>('double');
 const jsInput = ref('\'<div class="card">\\n  Hello &amp; welcome\\n</div>\'');
 const htmlOutput = ref('');
 
-const htmlToJs = computed(() => {
-  const source = htmlInput.value;
-  let escaped = source.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-  if (quote.value === 'single') escaped = escaped.replace(/'/g, "\\'");
-  else if (quote.value === 'double') escaped = escaped.replace(/"/g, '\\"');
-  escaped = escaped.replace(/\r\n/g, '\\n').replace(/\r/g, '\\n').replace(/\n/g, '\\n');
-  const open = quote.value === 'single' ? "'" : quote.value === 'double' ? '"' : '`';
-  const close = open;
-  return `${open}${escaped}${close}`;
-});
+const htmlToJs = computed(() => textToJsString(htmlInput.value, quote.value));
 
 const jsOutput = ref('');
 function toJs() {
@@ -95,77 +91,16 @@ function toJs() {
 }
 toJs();
 
-const jsToHtml = computed(() => {
+const jsToHtml = computed<{ value: string; error: string }>(() => {
   try {
-    const raw = jsInput.value.trim();
-    const first = raw[0];
-    if ((first === '"' || first === "'" || first === '`') && raw.endsWith(first)) {
-      return parseJsString(raw);
-    }
-    const fn = new Function(`return ${raw};`);
-    const result = fn();
-    return typeof result === 'string' ? result : String(result);
-  } catch {
-    return '';
+    return { value: jsStringToText(jsInput.value), error: '' };
+  } catch (e) {
+    return { value: '', error: (e as Error).message };
   }
 });
 
-function parseJsString(raw: string): string {
-  const quoteChar = raw[0];
-  const body = raw.slice(1, -1);
-  const out: string[] = [];
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
-    if (ch !== '\\') {
-      out.push(ch);
-      continue;
-    }
-    const next = body[i + 1];
-    if (next === undefined) break;
-    i++;
-    switch (next) {
-      case 'n':
-        out.push('\n');
-        break;
-      case 't':
-        out.push('\t');
-        break;
-      case 'r':
-        out.push('\r');
-        break;
-      case '\\':
-        out.push('\\');
-        break;
-      case "'":
-        out.push("'");
-        break;
-      case '"':
-        out.push('"');
-        break;
-      case '`':
-        out.push('`');
-        break;
-      case '0':
-        out.push('\0');
-        break;
-      case 'u': {
-        const hex = body.slice(i + 1, i + 5);
-        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
-          out.push(String.fromCharCode(parseInt(hex, 16)));
-          i += 4;
-        } else out.push('u');
-        break;
-      }
-      default:
-        out.push(next);
-    }
-    void quoteChar;
-  }
-  return out.join('');
-}
-
 function toHtml() {
-  htmlOutput.value = jsToHtml.value;
+  htmlOutput.value = jsToHtml.value.value;
 }
 toHtml();
 

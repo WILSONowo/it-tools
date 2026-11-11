@@ -23,21 +23,49 @@ import { computed } from 'vue';
 
 const { width, height } = useWindowSize();
 
+// screen.orientation is undefined on Safari < 16.4: fall back to media queries / window.orientation
+function getOrientationType(): string | null {
+  const orientation = window.screen.orientation as ScreenOrientation | undefined;
+  if (orientation?.type) {
+    return orientation.type;
+  }
+  if (typeof window.matchMedia === 'function') {
+    return window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape';
+  }
+  return null;
+}
+
+function getOrientationAngle(): number | null {
+  const orientation = window.screen.orientation as ScreenOrientation | undefined;
+  if (orientation && typeof orientation.angle === 'number') {
+    return orientation.angle;
+  }
+  const legacyAngle = (window as { orientation?: unknown }).orientation;
+  return typeof legacyAngle === 'number' ? legacyAngle : null;
+}
+
 const sections = [
   {
     name: '屏幕',
     information: [
       {
         label: '屏幕尺寸',
+        value: computed(() => `${window.screen.width} x ${window.screen.height}`),
+      },
+      {
+        label: '可用屏幕尺寸(不含任务栏/Dock)',
         value: computed(() => `${window.screen.availWidth} x ${window.screen.availHeight}`),
       },
       {
         label: '方向',
-        value: computed(() => window.screen.orientation.type),
+        value: computed(() => getOrientationType()),
       },
       {
         label: '方向角度',
-        value: computed(() => `${window.screen.orientation.angle}°`),
+        value: computed(() => {
+          const angle = getOrientationAngle();
+          return angle === null ? null : `${angle}°`;
+        }),
       },
       {
         label: '色彩深度',

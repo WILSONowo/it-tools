@@ -37,8 +37,7 @@
     </div>
 
     <n-space justify="center" style="margin: 12px 0">
-      <n-button type="primary" @click="refresh">转换</n-button>
-      <n-button secondary @click="copy">复制结果</n-button>
+      <n-button type="primary" secondary :disabled="output === ''" @click="copy">复制结果</n-button>
     </n-space>
 
     <n-form label-placement="top">
@@ -82,9 +81,5 @@ const output = computed(() =>
   }),
 );
 
-const { copy } = useCopy({ source: output, text: 'Pinyin copied to the clipboard' });
-
-function refresh() {
-  void output.value;
-}
+const { copy } = useCopy({ source: output, text: '拼音已复制到剪贴板' });
 </script>

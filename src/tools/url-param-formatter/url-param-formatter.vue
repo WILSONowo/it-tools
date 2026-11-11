@@ -55,7 +55,7 @@
             </n-radio-group>
           </n-form-item>
           <n-space justify="center" style="margin-bottom: 10px">
-            <n-button type="primary" @click="buildQuery">生成 Query</n-button>
+            <n-button type="primary" @click="buildQueryString">生成 Query</n-button>
           </n-space>
           <n-form-item label="完整 URL(可选拼接)" style="margin-bottom: 6px">
             <n-input :value="queryOutput" readonly style="font-family: monospace" />
@@ -72,6 +72,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useCopy } from '@/composable/copy';
+import { buildQuery, pairsToJson, pairsToLines, parsePairs } from './url-param-formatter.service';
 
 const queryInput = ref('https://example.com/path?a=1&b=hello%20world&c=%E4%B8%AD%E6%96%87');
 const parseOutput = ref('');
@@ -79,29 +80,9 @@ const linesInput = ref('a=1\nb=hello world\nc=3');
 const encodeMode = ref<'none' | 'encode'>('encode');
 const queryOutput = ref('');
 
-function extractQuery(raw: string): string {
-  const idx = raw.indexOf('?');
-  return idx >= 0 ? raw.slice(idx + 1) : raw;
-}
-
-function parsePairs(raw: string): [string, string][] {
-  const q = extractQuery(raw.trim());
-  if (!q) return [];
-  return q
-    .split('&')
-    .filter(Boolean)
-    .map((pair) => {
-      const eq = pair.indexOf('=');
-      if (eq < 0) return [decodeURIComponent(pair), ''];
-      return [decodeURIComponent(pair.slice(0, eq)), decodeURIComponent(pair.slice(eq + 1))];
-    });
-}
-
 function toLines() {
   try {
-    parseOutput.value = parsePairs(queryInput.value)
-      .map(([k, v]) => `${k} = ${v}`)
-      .join('\n');
+    parseOutput.value = pairsToLines(parsePairs(queryInput.value));
   } catch {
     parseOutput.value = '解析失败:包含无法解码的字符';
   }
@@ -109,16 +90,7 @@ function toLines() {
 
 function toJson() {
   try {
-    const obj: Record<string, string | string[]> = {};
-    for (const [k, v] of parsePairs(queryInput.value)) {
-      if (k in obj) {
-        const cur = obj[k];
-        obj[k] = Array.isArray(cur) ? [...cur, v] : [cur, v];
-      } else {
-        obj[k] = v;
-      }
-    }
-    parseOutput.value = JSON.stringify(obj, null, 2);
+    parseOutput.value = pairsToJson(parsePairs(queryInput.value));
   } catch {
     parseOutput.value = '解析失败:包含无法解码的字符';
   }
@@ -129,18 +101,8 @@ function parseSample() {
   toLines();
 }
 
-function buildQuery() {
-  const parts = linesInput.value
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const pairs = parts.map((line) => {
-    const eq = line.indexOf('=');
-    const k = eq < 0 ? line : line.slice(0, eq);
-    const v = eq < 0 ? '' : line.slice(eq + 1);
-    return encodeMode.value === 'encode' ? `${encodeURIComponent(k)}=${encodeURIComponent(v)}` : `${k}=${v}`;
-  });
-  queryOutput.value = '?' + pairs.join('&');
+function buildQueryString() {
+  queryOutput.value = buildQuery(linesInput.value, encodeMode.value === 'encode');
 }
 
 const { copy: copyParse } = useCopy({ source: parseOutput, text: '已复制' });

@@ -8,7 +8,8 @@ export const tool = defineTool({
   keywords: ['url', 'encode', 'decode', 'percent', '%20', 'format'],
   explain: [
     '- URL 编码(百分号编码)把非安全字符转为 %XX 十六进制。',
-    '- encodeURIComponent 会编码所有非字母数字字符,适合作为参数值。',
+    "- 本工具使用 encodeURIComponent:除 A-Z a-z 0-9 - _ . ! ~ * ' ( ) 外的字符都会被编码(包括 / ? & = # 等),适合编码单个参数值。",
+    '- 解码时如遇到不完整或非法的 %XX 序列(如 %E0%A4)会提示错误。',
   ],
   component: () => import('./url-encoder.vue'),
   icon: Link,

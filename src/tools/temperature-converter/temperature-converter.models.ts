@@ -18,3 +18,6 @@ export const convertKelvinToReaumur = (temperature: number) => (temperature - 27
 
 export const convertRomerToKelvin = (temperature: number) => (temperature - 7.5) * (40 / 21) + 273.15;
 export const convertKelvinToRomer = (temperature: number) => (temperature - 273.15) * (21 / 40) + 7.5;
+
+/** Round to 2 decimals (e.g. 37°C → 98.6°F instead of 98.59°F). */
+export const roundTemperature = (temperature: number) => Math.round(temperature * 100) / 100;

@@ -59,11 +59,11 @@
       </n-input-group>
 
       <n-input-group>
-        <n-input-group-label style="flex: 0 0 170px">Base64 (64 进制):</n-input-group-label>
+        <n-input-group-label style="flex: 0 0 170px">64 进制 (非 Base64 编码):</n-input-group-label>
         <input-copyable
           :value="errorlessConvert({ value: input, fromBase: inputBase, toBase: 64 })"
           readonly
-          placeholder="Base64 结果将显示在此..."
+          placeholder="64 进制结果将显示在此(字母表 0-9a-zA-Z+/)..."
         />
       </n-input-group>
       <n-input-group>

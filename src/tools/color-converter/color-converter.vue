@@ -55,6 +55,10 @@ const lch = ref('');
 
 function onInputUpdated(value: string, omit: string) {
   const color = colord(value);
+  // Partial input such as "#12" is not a valid color yet: keep the other fields untouched
+  if (!color.isValid()) {
+    return;
+  }
 
   if (omit !== 'name') name.value = color.toName({ closest: true }) ?? '';
   if (omit !== 'hex') hex.value = color.toHex();

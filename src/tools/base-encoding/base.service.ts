@@ -2,7 +2,6 @@ const A32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const A58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const A62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const A85 = '!"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
-const A91 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"';
 
 export function utf8ToBytes(s: string): Uint8Array {
   return new TextEncoder().encode(s);
@@ -73,13 +72,13 @@ function countLeadingZeros(bytes: Uint8Array): number {
   return c;
 }
 
+// 与比特币 Base58 约定一致:每个前导 0x00 字节编码为一个 alphabet[0](Base58 为 "1",Base62 为 "0"),
+// 其余部分按大整数转换;因此 [0] ↔ "1"、[0, 0] ↔ "11"、[] ↔ ""。
 function bigEncode(bytes: Uint8Array, alphabet: string): string {
   const base = BigInt(alphabet.length);
   const zeros = countLeadingZeros(bytes);
-  const n = toBigInt(bytes);
   let out = '';
-  let v = n;
-  if (v === BigInt(0)) out = alphabet[0];
+  let v = toBigInt(bytes);
   while (v > 0) {
     out = alphabet[Number(v % base)] + out;
     v /= base;
@@ -97,7 +96,7 @@ function bigDecode(s: string, alphabet: string): Uint8Array {
     if (idx < 0) throw new Error('输入包含字母表外字符');
     n = n * base + BigInt(idx);
   }
-  const body = fromBigInt(n);
+  const body = n === BigInt(0) ? new Uint8Array(0) : fromBigInt(n);
   const out = new Uint8Array(zeros + body.length);
   out.set(body, zeros);
   return out;

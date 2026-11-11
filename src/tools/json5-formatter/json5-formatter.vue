@@ -19,6 +19,10 @@
       <n-button secondary @click="prettyMode = false">压缩</n-button>
     </n-space>
 
+    <n-alert v-if="nonFiniteValues.length > 0" type="warning" style="margin-bottom: 12px">
+      JSON 不支持 Infinity、-Infinity 和 NaN,以下值在输出中会变为 null:{{ nonFiniteValues.join(', ') }}
+    </n-alert>
+
     <n-form-item label="输出" label-placement="top">
       <n-input
         :value="output"
@@ -40,9 +44,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import JSON5 from 'json5';
 import { useCopy } from '@/composable/copy';
+import { findNonFiniteNumbers, getJson5TypeLabel } from './json5-formatter.service';
 
 const input = ref('{\n  // the tools\n  name: "it-tools",\n  version: 1,\n  tags: ["json", "dev",],\n}');
 const prettyMode = ref(true);
@@ -58,21 +63,9 @@ const parsed = computed(() => {
 const parsedOk = computed(() => parsed.value.ok);
 const status = computed(() => (parsed.value.ok ? undefined : 'error'));
 const feedback = computed(() => (parsed.value.ok ? '' : parsed.value.error));
-const typeLabelMap: Record<string, string> = {
-  array: '数组',
-  object: '对象',
-  string: '字符串',
-  number: '数字',
-  boolean: '布尔值',
-  undefined: '未定义',
-};
+const typeLabel = computed(() => (parsed.value.ok ? getJson5TypeLabel(parsed.value.value) : ''));
 
-const typeLabel = computed(() => {
-  if (!parsed.value.ok) return '';
-  const value = parsed.value.value;
-  const t = Array.isArray(value) ? 'array' : typeof value;
-  return typeLabelMap[t] ?? t;
-});
+const nonFiniteValues = computed(() => (parsed.value.ok ? findNonFiniteNumbers(parsed.value.value) : []));
 
 const output = computed(() => {
   if (!parsed.value.ok) return '';

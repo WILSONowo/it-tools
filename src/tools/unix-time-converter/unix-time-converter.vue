@@ -6,12 +6,16 @@
           <n-form-item label="时间戳:">
             <n-input v-model:value="tsInput" placeholder="例如 1700000000 或 1700000000123" />
           </n-form-item>
+          <n-form-item label="时区:">
+            <n-select v-model:value="timeZone" :options="timezoneOptions" filterable />
+          </n-form-item>
           <n-form-item label="类型:">
             <n-radio-group v-model:value="tsType">
               <n-radio-button value="seconds">秒</n-radio-button>
               <n-radio-button value="milliseconds">毫秒</n-radio-button>
               <n-radio-button value="auto">自动</n-radio-button>
             </n-radio-group>
+            <template #feedback> 自动:绝对值 ≥ 1e11 视为毫秒,否则视为秒 </template>
           </n-form-item>
           <n-space justify="center" style="margin-top: 4px">
             <n-button type="primary" :disabled="formattedDate === ''" @click="copyDate">复制日期</n-button>
@@ -56,11 +60,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useCopy } from '@/composable/copy';
-import { format } from 'date-fns';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import {
+  formatInZone,
+  formatTimestampInZone,
+  parseDateInZone,
+  resolveTimestampMs,
+  type TimestampType,
+} from './unix-time-converter.service';
 
 const tsInput = ref('1700000000');
-const tsType = ref<'seconds' | 'milliseconds' | 'auto'>('auto');
+const tsType = ref<TimestampType>('auto');
 
 const dateInput = ref('2023-11-15 00:00:00');
 const timeZone = ref('Asia/Shanghai');
@@ -75,48 +84,19 @@ const timezoneOptions = [
   { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
 ];
 
-const tsNumber = computed(() => Number(tsInput.value.trim()));
-const resolvedTs = computed(() => {
-  if (tsInput.value.trim() === '' || Number.isNaN(tsNumber.value)) return null;
-  if (tsType.value === 'milliseconds') return tsNumber.value;
-  if (tsType.value === 'seconds') return tsNumber.value * 1000;
-
-  const abs = Math.abs(tsNumber.value);
-  return abs < 1e12 ? tsNumber.value * 1000 : tsNumber.value;
-});
-
-const formattedDate = computed(() => {
-  const ms = resolvedTs.value;
-  if (ms === null) return '';
-  const date = new Date(ms);
-  if (Number.isNaN(date.getTime())) return '';
-  const zoned = utcToZonedTime(date, timeZone.value);
-  const iso = format(zoned, 'yyyy-MM-dd HH:mm:ss XXX');
-
-  return `${iso} (${timeZone.value})`;
-});
+const resolvedTs = computed(() => resolveTimestampMs(tsInput.value, tsType.value));
+const formattedDate = computed(() => formatTimestampInZone(resolvedTs.value, timeZone.value));
 
 const { copy: copyDate } = useCopy({ source: formattedDate, text: '日期已复制到剪贴板' });
 
-function parseTimestamp(dateString: string) {
-  const asNumber = Number(dateString.trim());
-  if (!Number.isNaN(asNumber) && /^\d+$/.test(dateString.trim())) {
-    return asNumber < 1e12 ? asNumber * 1000 : asNumber;
-  }
-
-  const utc = zonedTimeToUtc(dateString, timeZone.value);
-  const parsed = new Date(utc);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
-}
-
 function parseFromDate() {
-  const ms = parseTimestamp(dateInput.value);
+  const ms = parseDateInZone(dateInput.value, timeZone.value);
   if (ms !== null) {
-    dateInput.value = format(utcToZonedTime(new Date(ms), timeZone.value), 'yyyy-MM-dd HH:mm:ss');
+    dateInput.value = formatInZone(ms, timeZone.value, 'yyyy-MM-dd HH:mm:ss');
   }
 }
 
-const parsedMs = computed(() => parseTimestamp(dateInput.value) ?? null);
+const parsedMs = computed(() => parseDateInZone(dateInput.value, timeZone.value));
 const secondsOutput = computed(() => (parsedMs.value === null ? '' : String(Math.floor(parsedMs.value / 1000))));
 const msOutput = computed(() => (parsedMs.value === null ? '' : String(parsedMs.value)));
 
@@ -124,6 +104,6 @@ const { copy: copySeconds } = useCopy({ source: secondsOutput, text: '时间戳�
 const { copy: copyMs } = useCopy({ source: msOutput, text: '时间戳已复制到剪贴板' });
 
 function useNow() {
-  dateInput.value = format(utcToZonedTime(new Date(), timeZone.value), 'yyyy-MM-dd HH:mm:ss');
+  dateInput.value = formatInZone(Date.now(), timeZone.value, 'yyyy-MM-dd HH:mm:ss');
 }
 </script>

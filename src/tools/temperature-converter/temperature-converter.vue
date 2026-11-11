@@ -24,6 +24,7 @@
 import _ from 'lodash';
 import { reactive } from 'vue';
 import {
+  roundTemperature,
   convertCelsiusToKelvin,
   convertDelisleToKelvin,
   convertFahrenheitToKelvin,
@@ -114,7 +115,7 @@ function update(key: TemperatureScale) {
   _.chain(units)
     .omit(key)
     .forEach(({ fromKelvin }, index) => {
-      units[index].ref = Math.floor((fromKelvin(kelvins) ?? 0) * 100) / 100;
+      units[index].ref = roundTemperature(fromKelvin(kelvins) ?? 0);
     })
     .value();
 }

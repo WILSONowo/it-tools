@@ -58,10 +58,9 @@ import {
   snakeCase,
 } from 'change-case';
 import InputCopyable from '../../components/InputCopyable.vue';
+import { caseConverterConfig } from './case-converter.service';
 
-const baseConfig = {
-  stripRegexp: /[^A-Za-zÀ-ÖØ-öø-ÿ]+/gi,
-};
+const baseConfig = caseConverterConfig;
 
 const input = ref('lorem ipsum dolor sit amet');
 </script>

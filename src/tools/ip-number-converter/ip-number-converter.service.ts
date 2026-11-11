@@ -1,10 +1,7 @@
 const B8 = BigInt(8);
 const B16 = BigInt(16);
-const B32 = BigInt(32);
-const B128 = BigInt(128);
 const B255 = BigInt(255);
 const B65535 = BigInt(65535);
-const V4MAX = BigInt('4294967295');
 
 export function isValidIp(value: string): boolean {
   return parseIpToBigInt(value) !== null;
@@ -27,16 +24,15 @@ export function parseIpv6ToBigInt(value: string): bigint | null {
   const clean = value.trim();
   if (clean === '') return null;
   if (clean.includes('.')) {
-    // IPv4-mapped IPv6, e.g. ::ffff:192.168.1.1
+    // IPv6 with embedded IPv4 in the last 32 bits, e.g. ::ffff:192.168.1.1 -> ::ffff:c0a8:101
     const v4Index = clean.lastIndexOf(':');
+    if (v4Index === -1) return null;
     const head = clean.slice(0, v4Index + 1);
-    const tail = clean.slice(v4Index + 1);
-    const v4 = parseIpv4ToBigInt(tail);
+    const v4 = parseIpv4ToBigInt(clean.slice(v4Index + 1));
     if (v4 === null) return null;
-    const headBig = parseIpv6ToBigInt(`${head}0:0:0:0`);
-    if (headBig === null) return null;
-    const mask = (BigInt(1) << B128) - (BigInt(1) << B32);
-    return (headBig & mask) | (v4 & V4MAX);
+    const hi = ((v4 >> B16) & B65535).toString(16);
+    const lo = (v4 & B65535).toString(16);
+    return parseIpv6ToBigInt(`${head}${hi}:${lo}`);
   }
 
   const doubleColon = clean.indexOf('::');
@@ -73,8 +69,19 @@ export function parseIpv6ToBigInt(value: string): bigint | null {
 
 export function parseIpToBigInt(value: string): bigint | null {
   const clean = value.trim();
-  if (clean.includes('.')) return parseIpv4ToBigInt(clean);
-  return parseIpv6ToBigInt(clean);
+  if (clean.includes(':')) return parseIpv6ToBigInt(clean);
+  return parseIpv4ToBigInt(clean);
+}
+
+/**
+ * Parse a non-negative integer (decimal, or hexadecimal with a 0x prefix) without throwing.
+ * Returns null for anything else (e.g. "abc", "1.5", "-1", "").
+ */
+export function parseNonNegativeBigInt(value: string): bigint | null {
+  const clean = value.trim();
+  if (/^\d+$/.test(clean)) return BigInt(clean);
+  if (/^0x[0-9a-f]+$/i.test(clean)) return BigInt(clean);
+  return null;
 }
 
 export function bigIntToIpv4(value: bigint): string {
