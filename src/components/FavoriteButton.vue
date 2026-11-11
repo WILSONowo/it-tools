@@ -7,7 +7,7 @@
         </template>
       </n-button>
     </template>
-    {{ isFavorite ? 'Remove from favorites' : 'Add to favorites' }}
+    {{ isFavorite ? '取消收藏' : '加入收藏' }}
   </n-tooltip>
 </template>
 

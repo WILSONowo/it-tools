@@ -83,7 +83,6 @@ function onFocus() {
       :options="options"
       :on-select="onSelect"
       :render-label="renderOption"
-      :default-value="'aa'"
       :get-show="() => displayDropDown"
       :on-focus="onFocus"
       @update:value="() => (displayDropDown = true)"

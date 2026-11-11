@@ -2,7 +2,7 @@
 import { Coffee } from '@vicons/tabler';
 import { useHead } from '@vueuse/head';
 
-useHead({ title: '页面不存在 - IT-Tools' });
+useHead({ title: '页面不存在 - 在线工具箱' });
 </script>
 
 <template>

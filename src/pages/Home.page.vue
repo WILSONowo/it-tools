@@ -61,9 +61,7 @@ useHead({ title: '在线工具箱' });
       <n-h3>全部工具</n-h3>
       <n-grid x-gap="12" y-gap="12" cols="1 400:2 800:3 1200:4 2000:8">
         <n-gi v-for="tool in toolStore.tools" :key="tool.name">
-          <transition>
-            <tool-card :tool="tool" />
-          </transition>
+          <tool-card :tool="tool" />
         </n-gi>
       </n-grid>
     </div>

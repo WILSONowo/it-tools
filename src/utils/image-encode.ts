@@ -1,3 +1,4 @@
+import { get2dContext } from './canvas';
 // 浏览器端图片编码工具:canvas → BMP / ICO
 
 export function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -10,7 +11,7 @@ export function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 export function canvasToBmpBlob(canvas: HTMLCanvasElement): Blob {
   const w = canvas.width;
   const h = canvas.height;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = get2dContext(canvas);
   const imageData = ctx.getImageData(0, 0, w, h).data;
   const rowSize = Math.floor((24 * w + 31) / 32) * 4;
   const pixelArraySize = rowSize * h;
@@ -50,42 +51,66 @@ export function canvasToBmpBlob(canvas: HTMLCanvasElement): Blob {
   return new Blob([buffer], { type: 'image/bmp' });
 }
 
-// ICO:含多个尺寸(每个尺寸内嵌 PNG)
-export async function canvasesToIcoBlob(entries: { canvas: HTMLCanvasElement; size: number }[]): Promise<Blob> {
-  const pngs = await Promise.all(
-    entries.map(async ({ canvas }) => ({ size: canvas.width, png: await canvasToPngBlob(canvas) })),
-  );
+export interface IcoImage {
+  width: number;
+  height: number;
+  /** Encoded PNG bytes for this size. */
+  png: Uint8Array;
+}
+
+/**
+ * Build an ICO file whose entries embed PNG data (supported since Windows Vista).
+ * Layout: ICONDIR (6 bytes) + ICONDIRENTRY (16 bytes each) + image data.
+ * Width/height are stored in one byte, so 256 is written as 0; larger sizes are invalid.
+ */
+export function buildIco(images: IcoImage[]): Uint8Array {
+  if (images.length === 0) throw new Error('ICO 至少需要一个尺寸');
+  for (const { width, height } of images) {
+    if (width < 1 || height < 1 || width > 256 || height > 256) {
+      throw new Error(`ICO 图标尺寸必须在 1-256 之间(当前 ${width}×${height})`);
+    }
+  }
 
   const headerSize = 6;
   const dirEntrySize = 16;
-  const dirSize = pngs.length * dirEntrySize;
-  const totalSize = headerSize + dirSize + pngs.reduce((s, p) => s + p.png.size, 0);
-  const buffer = new ArrayBuffer(totalSize);
-  const view = new DataView(buffer);
+  const dirSize = images.length * dirEntrySize;
+  const totalSize = headerSize + dirSize + images.reduce((s, p) => s + p.png.byteLength, 0);
+  const out = new Uint8Array(totalSize);
+  const view = new DataView(out.buffer);
 
   // ICONDIR
   view.setUint16(0, 0, true); // reserved
-  view.setUint16(2, 1, true); // type icon
-  view.setUint16(4, pngs.length, true);
+  view.setUint16(2, 1, true); // type: 1 = icon
+  view.setUint16(4, images.length, true); // image count
 
   let offset = headerSize + dirSize;
-  for (let i = 0; i < pngs.length; i++) {
-    const { size, png } = pngs[i];
+  images.forEach(({ width, height, png }, i) => {
     const entry = headerSize + i * dirEntrySize;
-    view.setUint8(entry, size >= 256 ? 0 : size);
-    view.setUint8(entry + 1, size >= 256 ? 0 : size);
-    view.setUint8(entry + 2, 0); // palette
+    view.setUint8(entry, width >= 256 ? 0 : width);
+    view.setUint8(entry + 1, height >= 256 ? 0 : height);
+    view.setUint8(entry + 2, 0); // palette colours (0 = no palette)
     view.setUint8(entry + 3, 0); // reserved
-    view.setUint16(entry + 4, 1, true); // planes
-    view.setUint16(entry + 6, 32, true); // bpp
-    view.setUint32(entry + 8, png.size, true);
-    view.setUint32(entry + 12, offset, true);
-    const bytes = new Uint8Array(await png.arrayBuffer());
-    new Uint8Array(buffer, offset, bytes.length).set(bytes);
-    offset += bytes.length;
-  }
+    view.setUint16(entry + 4, 1, true); // colour planes
+    view.setUint16(entry + 6, 32, true); // bits per pixel
+    view.setUint32(entry + 8, png.byteLength, true); // data size
+    view.setUint32(entry + 12, offset, true); // data offset from file start
+    out.set(png, offset);
+    offset += png.byteLength;
+  });
 
-  return new Blob([buffer], { type: 'image/x-icon' });
+  return out;
+}
+
+// ICO:含多个尺寸(每个尺寸内嵌 PNG)
+export async function canvasesToIcoBlob(entries: { canvas: HTMLCanvasElement; size?: number }[]): Promise<Blob> {
+  const images = await Promise.all(
+    entries.map(async ({ canvas }) => ({
+      width: canvas.width,
+      height: canvas.height,
+      png: new Uint8Array(await (await canvasToPngBlob(canvas)).arrayBuffer()),
+    })),
+  );
+  return new Blob([buildIco(images)], { type: 'image/x-icon' });
 }
 
 // 单尺寸 ICO
@@ -98,14 +123,5 @@ export async function canvasToDataUrl(canvas: HTMLCanvasElement, type: string, q
   return canvas.toDataURL(type, quality);
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  const units = ['KB', 'MB', 'GB'];
-  let v = bytes / 1024;
-  let u = 0;
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024;
-    u++;
-  }
-  return v.toFixed(2) + ' ' + units[u];
-}
+// 统一使用 utils/convert 中的实现,避免多处格式不一致
+export { formatBytes } from './convert';

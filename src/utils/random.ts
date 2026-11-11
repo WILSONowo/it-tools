@@ -1,3 +1,5 @@
+import { v4 as uuidV4 } from 'uuid';
+
 // All randomness here comes from the Web Crypto API (crypto.getRandomValues),
 // so it is safe for passwords, tokens and keys.
 
@@ -56,6 +58,29 @@ function randomString(alphabet: string | string[], length: number): string {
   return out;
 }
 
+/** RFC 4122 version-4 UUID (crypto.randomUUID when available, e.g. not on plain HTTP). */
+function randomUuid(): string {
+  const webCrypto = (typeof crypto === 'undefined' ? undefined : crypto) as
+    | (Crypto & { randomUUID?: () => string })
+    | undefined;
+  if (typeof webCrypto?.randomUUID === 'function') {
+    return webCrypto.randomUUID();
+  }
+  return uuidV4();
+}
+
+/**
+ * Random decimal in [min, max) on a grid of `decimals` places, so formatting with
+ * toFixed(decimals) can never round up to max.
+ */
+function randomDecimal(min: number, max: number, decimals = 2): number {
+  const scale = 10 ** decimals;
+  const low = Math.ceil(min * scale);
+  const steps = Math.ceil(max * scale) - low;
+  if (steps <= 0) return low / scale;
+  return (low + Math.floor(random() * steps)) / scale;
+}
+
 // Durstenfeld shuffle
 const shuffleArrayMutate = <T>(array: T[]): T[] => {
   for (let i = array.length - 1; i > 0; i--) {
@@ -74,7 +99,9 @@ export {
   randFromArray,
   randIntFromInterval,
   random,
+  randomDecimal,
   randomString,
+  randomUuid,
   secureRandomInt,
   shuffleArray,
   shuffleArrayMutate,

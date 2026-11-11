@@ -3,11 +3,14 @@ import { computed } from 'vue';
 import { useRoute, RouterView } from 'vue-router';
 import { darkTheme, NGlobalStyle, NMessageProvider, NNotificationProvider } from 'naive-ui';
 import { darkThemeOverrides, lightThemeOverrides } from './themes';
-import { layouts } from './layouts';
+import BaseLayout from './layouts/base.layout.vue';
+import ToolLayout from './layouts/tool.layout.vue';
 import { useStyleStore } from './stores/style.store';
 
 const route = useRoute();
-const layout = computed(() => route?.meta?.layout ?? layouts.base);
+// BaseLayout (sidebar, search, footer) stays mounted across navigations; only the tool
+// header/explain wrapper is toggled, so moving between home and tools doesn't rebuild the menu.
+const isTool = computed(() => Boolean(route?.meta?.isTool));
 const styleStore = useStyleStore();
 
 const theme = computed(() => (styleStore.isDarkTheme ? darkTheme : null));
@@ -19,9 +22,12 @@ const themeOverrides = computed(() => (styleStore.isDarkTheme ? darkThemeOverrid
     <n-global-style />
     <n-message-provider placement="bottom">
       <n-notification-provider placement="bottom-right">
-        <component :is="layout">
-          <router-view />
-        </component>
+        <base-layout>
+          <tool-layout v-if="isTool">
+            <router-view />
+          </tool-layout>
+          <router-view v-else />
+        </base-layout>
       </n-notification-provider>
     </n-message-provider>
   </n-config-provider>

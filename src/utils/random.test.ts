@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { randFromArray, randIntFromInterval, random, randomString, secureRandomInt, shuffleArray } from './random';
+import {
+  randFromArray,
+  randIntFromInterval,
+  random,
+  randomDecimal,
+  randomString,
+  randomUuid,
+  secureRandomInt,
+  shuffleArray,
+} from './random';
 
 describe('random', () => {
   it('returns floats in [0, 1)', () => {
@@ -89,5 +98,20 @@ describe('randFromArray / randomString / shuffleArray', () => {
   it('keeps all elements when shuffling', () => {
     const items = Array.from({ length: 50 }, (_, i) => i);
     expect(shuffleArray(items).sort((a, b) => a - b)).toEqual(items);
+  });
+});
+
+describe('randomDecimal / randomUuid', () => {
+  it('stays in [min, max) even after toFixed', () => {
+    for (let i = 0; i < 2000; i++) {
+      const value = randomDecimal(0, 0.03, 2);
+      expect(Number(value.toFixed(2))).toBeLessThan(0.03);
+      expect(value).toBeGreaterThanOrEqual(0);
+    }
+    expect(randomDecimal(5, 5)).toBe(5);
+  });
+
+  it('returns v4 UUIDs', () => {
+    expect(randomUuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });

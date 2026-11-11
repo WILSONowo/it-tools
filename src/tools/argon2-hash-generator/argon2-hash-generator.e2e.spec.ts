@@ -6,7 +6,7 @@ test.describe('Tool - Argon2 hash generator', () => {
   });
 
   test('Has correct title', async ({ page }) => {
-    await expect(page).toHaveTitle('Argon2 哈希生成器 - IT Tools');
+    await expect(page).toHaveTitle('Argon2 哈希生成器 - 在线工具箱');
   });
 
   test('Verifies matching and different passwords', async ({ page }) => {

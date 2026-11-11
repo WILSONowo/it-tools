@@ -6,6 +6,6 @@ test.describe('Tool - Http status codes', () => {
   });
 
   test('Has correct title', async ({ page }) => {
-    await expect(page).toHaveTitle('HTTP 状态码大全 - IT Tools');
+    await expect(page).toHaveTitle('HTTP 状态码大全 - 在线工具箱');
   });
 });

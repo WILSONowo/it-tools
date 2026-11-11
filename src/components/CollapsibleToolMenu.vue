@@ -33,6 +33,7 @@ import { useStorage } from '@vueuse/core';
 import { useThemeVars } from 'naive-ui';
 import { toRefs, computed, h } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
+import { isBooleanRecord, safeJsonSerializer } from '@/utils/storage';
 import MenuIconItem from './MenuIconItem.vue';
 
 const props = withDefaults(defineProps<{ toolsByCategory?: ToolCategory[] }>(), { toolsByCategory: () => [] });
@@ -48,10 +49,7 @@ const collapsedCategories = useStorage<Record<string, boolean>>(
   undefined,
   {
     deep: true,
-    serializer: {
-      read: (v) => (v ? JSON.parse(v) : null),
-      write: (v) => JSON.stringify(v),
-    },
+    serializer: safeJsonSerializer<Record<string, boolean>>(() => ({}), isBooleanRecord),
   },
 );
 

@@ -1,5 +1,5 @@
-import { useRouteQuery } from '@vueuse/router';
 import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 export { useQueryParam };
 
@@ -18,18 +18,27 @@ const transformers = {
   },
 };
 
+/** A value synced with a URL query parameter (omitted from the URL while it equals the default). */
 function useQueryParam<T extends string | number | boolean>({ name, defaultValue }: { name: string; defaultValue: T }) {
   const type = typeof defaultValue;
   const transformer = transformers[type as keyof typeof transformers] ?? transformers.string;
-
-  const proxy = useRouteQuery(name, transformer.toQuery(defaultValue as never));
+  const route = useRoute();
+  const router = useRouter();
 
   return computed<T>({
     get() {
-      return transformer.fromQuery(proxy.value) as T;
+      const raw = route.query[name];
+      const value = Array.isArray(raw) ? raw[0] : raw;
+      return value == null ? defaultValue : (transformer.fromQuery(value) as T);
     },
     set(value) {
-      proxy.value = transformer.toQuery(value as never);
+      const query = { ...route.query };
+      if (value === defaultValue) {
+        delete query[name];
+      } else {
+        query[name] = transformer.toQuery(value as never);
+      }
+      router.replace({ query });
     },
   });
 }

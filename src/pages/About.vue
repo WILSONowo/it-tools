@@ -2,7 +2,7 @@
 import { useTracker } from '@/modules/tracker/tracker.services';
 import { useHead } from '@vueuse/head';
 
-useHead({ title: '关于 - IT-Tools' });
+useHead({ title: '关于 - 在线工具箱' });
 const { tracker } = useTracker();
 </script>
 

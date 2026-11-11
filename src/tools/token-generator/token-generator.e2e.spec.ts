@@ -6,7 +6,7 @@ test.describe('Tool - Token generator', () => {
   });
 
   test('Has title', async ({ page }) => {
-    await expect(page).toHaveTitle('随机字符串生成器 - IT Tools');
+    await expect(page).toHaveTitle('随机字符串生成器 - 在线工具箱');
   });
 
   test('New token on refresh', async ({ page }) => {

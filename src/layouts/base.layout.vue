@@ -18,6 +18,7 @@ const themeVars = useThemeVars();
 const styleStore = useStyleStore();
 const version = config.app.version;
 const commitSha = config.app.lastCommitSha.slice(0, 7);
+const repoUrl = config.app.repoUrl;
 
 const toolStore = useToolStore();
 
@@ -50,15 +51,7 @@ const tools = computed<ToolCategory[]>(() => [
           <div>
             在线工具箱
 
-            <n-button
-              text
-              tag="a"
-              target="_blank"
-              rel="noopener"
-              type="primary"
-              depth="3"
-              :href="`https://github.com/CorentinTh/it-tools/tree/v${version}`"
-            >
+            <n-button text tag="a" target="_blank" rel="noopener" type="primary" depth="3" :href="repoUrl">
               v{{ version }}
             </n-button>
 
@@ -71,7 +64,7 @@ const tools = computed<ToolCategory[]>(() => [
                 rel="noopener"
                 type="primary"
                 depth="3"
-                :href="`https://github.com/CorentinTh/it-tools/tree/${commitSha}`"
+                :href="`${repoUrl}/commit/${commitSha}`"
               >
                 {{ commitSha }}
               </n-button>

@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 export { getErrorMessageIfThrows };
 
 function getErrorMessageIfThrows(cb: () => unknown) {
@@ -7,18 +5,18 @@ function getErrorMessageIfThrows(cb: () => unknown) {
     cb();
     return undefined;
   } catch (err) {
-    if (_.isString(err)) {
+    if (typeof err === 'string') {
       return err;
     }
 
-    if (_.isError(err)) {
+    if (err instanceof Error) {
       return err.message;
     }
 
-    if (_.isObject(err) && _.has(err, 'message')) {
+    if (typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'message')) {
       return (err as { message: string }).message;
     }
 
-    return 'An error as occurred.';
+    return '发生未知错误';
   }
 }

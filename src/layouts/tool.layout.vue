@@ -5,12 +5,12 @@ import type { HeadObject } from '@vueuse/head';
 import { computed } from 'vue';
 import FavoriteButton from '@/components/FavoriteButton.vue';
 import type { Tool } from '@/tools/tools.types';
-import BaseLayout from './base.layout.vue';
+import { parseExplain, renderExplainText } from './explain';
 
 const route = useRoute();
 
 const head = computed<HeadObject>(() => ({
-  title: `${route.meta.name} - IT Tools`,
+  title: `${route.meta.name} - 在线工具箱`,
   meta: [
     {
       name: 'description',
@@ -26,96 +26,57 @@ useHead(head);
 
 const explains = computed<string[]>(() => (route.meta.explain as string[] | undefined) ?? []);
 
-type DisplayItem =
-  | { type: 'table'; rows: string[][] }
-  | { type: 'heading'; text: string }
-  | { type: 'li'; text: string }
-  | { type: 'p'; text: string };
-
-const displayItems = computed<DisplayItem[]>(() => {
-  const items: DisplayItem[] = [];
-  const src = explains.value;
-  let i = 0;
-  while (i < src.length) {
-    const p = src[i];
-    if (p.startsWith('|')) {
-      const rows: string[][] = [];
-      while (i < src.length && src[i].startsWith('|')) {
-        rows.push(
-          src[i]
-            .slice(1, -1)
-            .split('|')
-            .map((c) => c.trim()),
-        );
-        i++;
-      }
-      items.push({ type: 'table', rows });
-    } else if (p.startsWith('## ')) {
-      items.push({ type: 'heading', text: p.slice(3) });
-      i++;
-    } else if (p.startsWith('- ')) {
-      items.push({ type: 'li', text: p.slice(2) });
-      i++;
-    } else {
-      items.push({ type: 'p', text: p });
-      i++;
-    }
-  }
-  return items;
-});
-
-function rich(text: string): string {
-  // 先转义 HTML,再把 **加粗** 替换为 <b>
-  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-}
+const displayItems = computed(() => parseExplain(explains.value));
+const rich = renderExplainText;
 </script>
 
 <template>
-  <base-layout>
-    <div class="tool-layout">
-      <div class="tool-header">
-        <n-space align="center" justify="space-between" :wrap="false">
-          <n-h1>
-            {{ route.meta.name }}
-          </n-h1>
+  <!-- Rendered inside the persistent BaseLayout from App.vue -->
+  <div class="tool-layout">
+    <div class="tool-header">
+      <n-space align="center" justify="space-between" :wrap="false">
+        <n-h1>
+          {{ route.meta.name }}
+        </n-h1>
 
-          <div>
-            <favorite-button :tool="{name: route.meta.name} as Tool" />
-          </div>
-        </n-space>
-
-        <div class="separator" />
-
-        <div class="description">
-          {{ route.meta.description }}
+        <div>
+          <favorite-button :tool="{ name: route.meta.name, path: route.path } as Tool" />
         </div>
+      </n-space>
+
+      <div class="separator" />
+
+      <div class="description">
+        {{ route.meta.description }}
       </div>
     </div>
+  </div>
 
-    <div class="tool-content">
-      <slot />
-    </div>
+  <div class="tool-content">
+    <slot />
+  </div>
 
-    <div v-if="displayItems.length > 0" class="tool-explain">
-      <n-collapse>
-        <n-collapse-item title="说明" name="explain">
-          <template v-for="(item, i) in displayItems" :key="i">
-            <div v-if="item.type === 'heading'" class="explain-heading">{{ item.text }}</div>
-            <table v-else-if="item.type === 'table'" class="explain-table">
-              <tbody>
-                <tr v-for="(row, ri) in item.rows" :key="'r' + ri">
-                  <component :is="ri === 0 ? 'th' : 'td'" v-for="(cell, ci) in row" :key="ci" v-html="rich(cell)" />
-                </tr>
-              </tbody>
-            </table>
-            <div v-else-if="item.type === 'li'" class="explain-para explain-li" v-html="'• ' + rich(item.text)"></div>
-            <div v-else class="explain-para" v-html="rich(item.text)"></div>
-          </template>
-        </n-collapse-item>
-      </n-collapse>
-    </div>
-  </base-layout>
+  <div v-if="displayItems.length > 0" class="tool-explain">
+    <n-collapse>
+      <n-collapse-item title="说明" name="explain">
+        <template v-for="(item, i) in displayItems" :key="i">
+          <div v-if="item.type === 'heading'" class="explain-heading">{{ item.text }}</div>
+          <table v-else-if="item.type === 'table'" class="explain-table">
+            <tbody>
+              <tr v-for="(row, ri) in item.rows" :key="'r' + ri">
+                <!-- eslint-disable-next-line vue/no-v-html -- renderExplainText escapes HTML first -->
+                <component :is="ri === 0 ? 'th' : 'td'" v-for="(cell, ci) in row" :key="ci" v-html="rich(cell)" />
+              </tr>
+            </tbody>
+          </table>
+          <!-- eslint-disable-next-line vue/no-v-html -- renderExplainText escapes HTML first -->
+          <div v-else-if="item.type === 'li'" class="explain-para explain-li" v-html="'• ' + rich(item.text)"></div>
+          <!-- eslint-disable-next-line vue/no-v-html -- renderExplainText escapes HTML first -->
+          <div v-else class="explain-para" v-html="rich(item.text)"></div>
+        </template>
+      </n-collapse-item>
+    </n-collapse>
+  </div>
 </template>
 
 <style lang="less" scoped>

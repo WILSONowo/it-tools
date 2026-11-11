@@ -1,4 +1,3 @@
-import _ from 'lodash';
 import { reactive, watch, type Ref } from 'vue';
 
 type ValidatorReturnType = unknown;
@@ -12,10 +11,10 @@ export function isFalsyOrHasThrown(cb: () => ValidatorReturnType): boolean {
   try {
     const returnValue = cb();
 
-    if (_.isNil(returnValue)) return true;
+    if (returnValue == null) return true;
 
     return returnValue === false;
-  } catch (_) {
+  } catch {
     return true;
   }
 }

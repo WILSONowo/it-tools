@@ -15,7 +15,7 @@
   </n-form-item>
   <div v-if="clearable" class="format-transformer-actions">
     <n-space justify="center">
-      <n-button secondary :disabled="!output" @click="clearInput">清空</n-button>
+      <n-button secondary :disabled="!input" @click="clearInput">清空</n-button>
     </n-space>
   </div>
   <n-form-item :label="outputLabel">
@@ -25,7 +25,6 @@
 
 <script setup lang="ts">
 import { useValidation, type UseValidationRule } from '@/composable/validation';
-import _ from 'lodash';
 
 const props = withDefaults(
   defineProps<{
@@ -39,12 +38,12 @@ const props = withDefaults(
     clearable?: boolean;
   }>(),
   {
-    transformer: _.identity,
+    transformer: (value: string) => value,
     inputValidationRules: () => [],
-    inputLabel: 'Input',
+    inputLabel: '输入',
     inputDefault: '',
-    inputPlaceholder: 'Input...',
-    outputLabel: 'Output',
+    inputPlaceholder: '请输入...',
+    outputLabel: '输出',
     outputLanguage: '',
     clearable: false,
   },

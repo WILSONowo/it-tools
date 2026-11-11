@@ -6,7 +6,7 @@ test.describe('Tool - OTP code generator', () => {
   });
 
   test('Has title', async ({ page }) => {
-    await expect(page).toHaveTitle('OTP 一次性密码 - IT Tools');
+    await expect(page).toHaveTitle('OTP 一次性密码 - 在线工具箱');
   });
 
   test('Secret hexa value is computed from provided secret', async ({ page }) => {

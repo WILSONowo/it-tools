@@ -14,6 +14,12 @@ export const config = figue({
       default: '',
       env: 'VITE_VERCEL_GIT_COMMIT_SHA',
     },
+    repoUrl: {
+      doc: 'Repository this deployment is built from (used for version / commit links)',
+      format: 'string',
+      default: 'https://github.com/WILSONowo/it-tools',
+      env: 'VITE_REPO_URL',
+    },
     baseUrl: {
       doc: 'Application base url',
       format: 'string',
