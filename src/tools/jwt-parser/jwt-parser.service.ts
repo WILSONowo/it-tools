@@ -3,7 +3,7 @@ import _ from 'lodash';
 import { match } from 'ts-pattern';
 import { ALGORITHM_DESCRIPTIONS, CLAIM_DESCRIPTIONS } from './jwt-parser.constants';
 
-export { decodeJwt };
+export { decodeJwt, formatClaimValue };
 
 function decodeJwt({ jwt }: { jwt: string }) {
   const rawHeader = jwtDecode<JwtHeader>(jwt, { header: true });
@@ -20,7 +20,7 @@ function decodeJwt({ jwt }: { jwt: string }) {
 
 function parseClaims({ claim, value }: { claim: string; value: unknown }) {
   const claimDescription = CLAIM_DESCRIPTIONS[claim];
-  const formattedValue = _.isPlainObject(value) ? JSON.stringify(value, null, 3) : _.toString(value);
+  const formattedValue = formatClaimValue(value);
   const friendlyValue = getFriendlyValue({ claim, value });
 
   return {
@@ -29,6 +29,14 @@ function parseClaims({ claim, value }: { claim: string; value: unknown }) {
     claim,
     claimDescription,
   };
+}
+
+// 字符串原样显示;数组、对象、null 等按 JSON 显示,避免 _.toString 把 ["a","b"] 拍平成 a,b、把对象变成 [object Object]
+function formatClaimValue(value: unknown): string {
+  if (_.isString(value)) return value;
+  if (_.isNumber(value) || _.isBoolean(value)) return String(value);
+  if (_.isPlainObject(value) || _.isArray(value) || _.isNull(value)) return JSON.stringify(value, null, 2);
+  return _.toString(value);
 }
 
 function getFriendlyValue({ claim, value }: { claim: string; value: unknown }) {

@@ -117,7 +117,7 @@ const { attrs: secretValidationAttrs } = useValidation({
   rules: [
     {
       message: '密钥应为 Base32 字符串',
-      validator: (value) => value.toUpperCase().match(/^[A-Z234567]+$/),
+      validator: (value) => /^[A-Z234567]+$/.test(value.toUpperCase().replace(/[\s=-]/g, '')),
     },
     {
       message: '请设置密钥',

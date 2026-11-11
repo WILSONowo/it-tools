@@ -58,7 +58,7 @@ const LETTERS: Record<string, string> = {
 const MORSE_TO_CHAR = Object.fromEntries(Object.entries(LETTERS).map(([char, code]) => [code, char]));
 
 export function textToMorse(text: string, wordSeparator: boolean): string {
-  const words = text.trim().split(/\s+/);
+  const words = text.trim().split(/\s+/).filter(Boolean);
   const result = words
     .map((word) =>
       word
@@ -76,8 +76,15 @@ export function textToMorse(text: string, wordSeparator: boolean): string {
 }
 
 export function morseToText(morse: string): string {
-  const cleaned = morse.trim().replace(/[·•]/g, '.');
-  const words = cleaned.split(/\s*\/\s*/);
+  // 兼容常见的点/划替代字符
+  const cleaned = morse
+    .trim()
+    .replace(/[·•∙]/g, '.')
+    .replace(/[—–−_]/g, '-');
+  if (cleaned === '') return '';
+
+  // 单词之间用 /、换行或两个及以上空白分隔(对应摩斯电码中 7 个单位的词间隔);字母之间用单个空白分隔
+  const words = cleaned.split(/\s*\/\s*|\s*\n\s*|\s{2,}/).filter((word) => word.trim() !== '');
   const result = words
     .map((word) =>
       word

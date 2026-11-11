@@ -65,6 +65,9 @@
             </n-form-item>
           </n-gi>
         </n-grid>
+        <n-alert v-if="decryptResult.error" type="error" :show-icon="false" style="margin-top: 12px">
+          {{ decryptResult.error }}
+        </n-alert>
         <n-form-item label="解密结果" label-placement="top" style="margin: 12px 0 0">
           <n-input
             :value="decryptOutput"
@@ -85,19 +88,20 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { AES, TripleDES, Rabbit, RC4, enc } from 'crypto-js';
-
-const algos = { AES, TripleDES, Rabbit, RC4 };
+import { type CipherAlgo, algos, decryptText, encryptText } from './encryption.service';
 
 const cypherInput = ref('Lorem ipsum dolor sit amet');
-const cypherAlgo = ref<keyof typeof algos>('AES');
+const cypherAlgo = ref<CipherAlgo>('AES');
 const cypherSecret = ref('my secret key');
-const cypherOutput = computed(() => algos[cypherAlgo.value].encrypt(cypherInput.value, cypherSecret.value).toString());
+const cypherOutput = computed(() =>
+  encryptText({ algo: cypherAlgo.value, text: cypherInput.value, secret: cypherSecret.value }),
+);
 
 const decryptInput = ref('U2FsdGVkX1/EC3+6P5dbbkZ3e1kQ5o2yzuU0NHTjmrKnLBEwreV489Kr0DIB+uBs');
-const decryptAlgo = ref<keyof typeof algos>('AES');
+const decryptAlgo = ref<CipherAlgo>('AES');
 const decryptSecret = ref('my secret key');
-const decryptOutput = computed(() =>
-  algos[decryptAlgo.value].decrypt(decryptInput.value, decryptSecret.value).toString(enc.Utf8),
+const decryptResult = computed(() =>
+  decryptText({ algo: decryptAlgo.value, cipherText: decryptInput.value, secret: decryptSecret.value }),
 );
+const decryptOutput = computed(() => decryptResult.value.output);
 </script>

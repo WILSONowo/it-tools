@@ -70,6 +70,7 @@
           <n-button type="primary" @click="vigEncrypt">加密</n-button>
           <n-button type="primary" @click="vigDecrypt">解密</n-button>
         </n-space>
+        <n-alert v-if="vigError" type="error" :show-icon="false" style="margin-bottom: 12px">{{ vigError }}</n-alert>
         <n-form label-placement="top">
           <n-form-item label="结果">
             <n-input
@@ -89,31 +90,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { caesarBruteForce, caesarShift as caesarShiftText, vigenere } from './classic-ciphers.service';
 
 const caesarInput = ref('HELLO WORLD');
-const caesarShift = ref(3);
+const caesarShift = ref<number | null>(3);
 const caesarOutput = ref('');
 const bruteResult = ref('');
 
 const vigInput = ref('ATTACKATDAWN');
 const vigKey = ref('LEMON');
 const vigOutput = ref('');
-
-function shiftChar(char: string, shift: number): string {
-  const code = char.charCodeAt(0);
-  const isUpper = code >= 65 && code <= 90;
-  const isLower = code >= 97 && code <= 122;
-  if (!isUpper && !isLower) return char;
-  const base = isUpper ? 65 : 97;
-  return String.fromCharCode(((code - base + shift + 26) % 26) + base);
-}
-
-function caesarShiftText(text: string, shift: number): string {
-  return text
-    .split('')
-    .map((char) => shiftChar(char, shift))
-    .join('');
-}
+const vigError = ref('');
 
 function caesarEncrypt() {
   bruteResult.value = '';
@@ -122,69 +109,25 @@ function caesarEncrypt() {
 
 function caesarDecrypt() {
   bruteResult.value = '';
-  caesarOutput.value = caesarShiftText(caesarInput.value, -caesarShift.value);
+  caesarOutput.value = caesarShiftText(caesarInput.value, -(caesarShift.value ?? 0));
 }
 
 function caesarBrute() {
-  const text = caesarInput.value;
-  const lines: string[] = [];
-  for (let shift = 1; shift <= 25; shift++) {
-    lines.push(`偏移 ${shift.toString().padStart(2, ' ')}: ${caesarShiftText(text, -shift)}`);
-  }
-  bruteResult.value = lines.join('\n');
+  bruteResult.value = caesarBruteForce(caesarInput.value);
 }
 
-function vigClean(text: string, key: string): { text: string; ok: boolean; error?: string } {
-  if (key.trim() === '') return { text: '', ok: false, error: '请输入密钥' };
-  if (!/^[a-zA-Z]+$/.test(key.trim())) return { text: '', ok: false, error: '密钥只能包含字母' };
-  const keyUpper = key.toUpperCase();
-  const shifts = keyUpper.split('').map((char) => char.charCodeAt(0) - 65);
-  let keyIndex = 0;
-  const result = text
-    .split('')
-    .map((char) => {
-      const code = char.charCodeAt(0);
-      const isUpper = code >= 65 && code <= 90;
-      const isLower = code >= 97 && code <= 122;
-      if (!isUpper && !isLower) return char;
-      const shift = shifts[keyIndex % shifts.length];
-      keyIndex++;
-      return shiftChar(char, shift);
-    })
-    .join('');
-  return { text: result, ok: true };
+function runVigenere(mode: 'encrypt' | 'decrypt') {
+  const { output, error } = vigenere({ text: vigInput.value, key: vigKey.value, mode });
+  vigOutput.value = output;
+  vigError.value = error ?? '';
 }
 
 function vigEncrypt() {
-  const { text, ok, error } = vigClean(vigInput.value, vigKey.value);
-  if (!ok) {
-    vigOutput.value = '';
-    return;
-  }
-  vigOutput.value = text;
+  runVigenere('encrypt');
 }
 
 function vigDecrypt() {
-  const cleaned = vigClean(vigInput.value, vigKey.value);
-  if (!cleaned.ok) {
-    vigOutput.value = '';
-    return;
-  }
-  const keyUpper = vigKey.value.toUpperCase();
-  const shifts = keyUpper.split('').map((char) => char.charCodeAt(0) - 65);
-  let keyIndex = 0;
-  vigOutput.value = vigInput.value
-    .split('')
-    .map((char) => {
-      const code = char.charCodeAt(0);
-      const isUpper = code >= 65 && code <= 90;
-      const isLower = code >= 97 && code <= 122;
-      if (!isUpper && !isLower) return char;
-      const shift = shifts[keyIndex % shifts.length];
-      keyIndex++;
-      return shiftChar(char, -shift);
-    })
-    .join('');
+  runVigenere('decrypt');
 }
 
 caesarEncrypt();

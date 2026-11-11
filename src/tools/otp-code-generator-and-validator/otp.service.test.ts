@@ -22,13 +22,34 @@ describe('otp functions', () => {
   });
   describe('base32toHex', () => {
     it('convert a base32 to hex string', () => {
-      expect(base32toHex('ABCDEF')).to.eql('00443205');
-      expect(base32toHex('7777')).to.eql('ffff0f');
+      expect(base32toHex('ABCDEF')).to.eql('004432');
+      expect(base32toHex('7777')).to.eql('ffff');
       expect(base32toHex('JBSWY3DPEHPK3PXP')).to.eql('48656c6c6f21deadbeef');
     });
 
     it('case does not matter', () => {
       expect(base32toHex('ABC')).to.eql(base32toHex('abc'));
+    });
+
+    it('drops leftover bits instead of producing an extra key byte', () => {
+      // 26 chars = 130 bits -> 16 bytes, the remaining 2 bits are padding
+      expect(base32toHex('JBSWY3DPEHPK3PXPJBSWY3DPEH')).to.eql('48656c6c6f21deadbeef48656c6c6f21');
+      expect(base32toHex('MZXW6YQ')).to.eql('666f6f62'); // "foob" (RFC 4648 test vector, unpadded)
+      expect(base32toHex('MZXW6YQ=')).to.eql('666f6f62');
+    });
+
+    it('ignores spaces, hyphens and padding', () => {
+      expect(base32toHex('jbsw y3dp-ehpk 3pxp')).to.eql('48656c6c6f21deadbeef');
+      expect(base32toHex('MZXW6YTBOI======')).to.eql('666f6f626172'); // "foobar"
+    });
+  });
+
+  describe('generateHOTP with a secret whose length is not a multiple of 8', () => {
+    it('matches the RFC 4226 reference implementation', () => {
+      const key = 'JBSWY3DPEHPK3PXPJBSWY3DPEH';
+      expect(generateHOTP({ key, counter: 0 })).to.eql('154113');
+      expect(generateHOTP({ key, counter: 1 })).to.eql('744635');
+      expect(generateHOTP({ key, counter: 2 })).to.eql('644925');
     });
   });
 

@@ -119,7 +119,7 @@
           </n-space>
 
           <n-result v-if="verifyResult === true" status="success" title="签名有效" />
-          <n-result v-else-if="verifyResult === false" status="error" title="签名无效" />
+          <n-result v-else-if="verifyResult === false" status="error" :title="SIGNATURE_MISMATCH" />
           <n-alert v-else-if="verifyError" type="error" :show-icon="false">{{ verifyError }}</n-alert>
         </n-tab-pane>
       </n-tabs>
@@ -129,13 +129,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useClipboard } from '@vueuse/core';
-import { useMessage } from 'naive-ui';
-import forge from 'node-forge';
+import { useCopy } from '@/composable/copy';
+import {
+  SIGNATURE_MISMATCH,
+  type SignHash,
+  type SignatureEncoding,
+  rsaSign,
+  rsaVerify,
+  signHashes,
+} from './rsa-sign-verify.service';
 
-const { pki, util } = forge;
-
-const hashOptions = ['SHA1', 'SHA224', 'SHA256', 'SHA384', 'SHA512', 'MD5'].map((label) => ({ label, value: label }));
+const hashOptions = signHashes.map((label) => ({ label, value: label }));
 const sigFormatOptions = [
   { label: 'base64', value: 'base64' },
   { label: 'hex', value: 'hex' },
@@ -143,37 +147,29 @@ const sigFormatOptions = [
 
 const signContent = ref('');
 const signKey = ref('');
-const signHash = ref('SHA256');
-const signFormat = ref('base64');
+const signHash = ref<SignHash>('SHA256');
+const signFormat = ref<SignatureEncoding>('base64');
 const signature = ref('');
 const signError = ref('');
 
 const verifyContent = ref('');
 const verifyKey = ref('');
 const verifySignature = ref('');
-const verifyHash = ref('SHA256');
-const verifyFormat = ref('base64');
+const verifyHash = ref<SignHash>('SHA256');
+const verifyFormat = ref<SignatureEncoding>('base64');
 const verifyResult = ref<boolean | null>(null);
 const verifyError = ref('');
-
-const message = useMessage();
-
-function signMd(message: string, hash: string): forge.md.MessageDigest {
-  const name = hash.toLowerCase();
-  const algo = forge.md[name as keyof typeof forge.md] as { create: () => forge.md.MessageDigest };
-  const md = algo.create();
-  md.update(message, 'utf8');
-  return md;
-}
 
 function doSign() {
   signError.value = '';
   signature.value = '';
   try {
-    const key = pki.privateKeyFromPem(signKey.value);
-    const md = signMd(signContent.value, signHash.value);
-    const raw = key.sign(md);
-    signature.value = signFormat.value === 'hex' ? util.bytesToHex(raw) : util.encode64(raw);
+    signature.value = rsaSign({
+      privateKeyPem: signKey.value,
+      message: signContent.value,
+      hash: signHash.value,
+      encoding: signFormat.value,
+    });
   } catch (e) {
     signError.value = (e as Error).message;
   }
@@ -183,13 +179,13 @@ function doVerify() {
   verifyResult.value = null;
   verifyError.value = '';
   try {
-    const key = pki.publicKeyFromPem(verifyKey.value);
-    const md = signMd(verifyContent.value, verifyHash.value);
-    const raw =
-      verifyFormat.value === 'hex'
-        ? util.hexToBytes(verifySignature.value.trim())
-        : util.decode64(verifySignature.value.trim());
-    verifyResult.value = key.verify(md.digest().bytes(), raw);
+    verifyResult.value = rsaVerify({
+      publicKeyPem: verifyKey.value,
+      message: verifyContent.value,
+      signature: verifySignature.value,
+      hash: verifyHash.value,
+      encoding: verifyFormat.value,
+    });
   } catch (e) {
     verifyError.value = (e as Error).message;
   }
@@ -210,10 +206,9 @@ function clearVerify() {
   verifyError.value = '';
 }
 
-const { copy: copyText } = useClipboard({ source: signature });
+const { copy: copyText } = useCopy({ source: signature, text: '已复制到剪贴板' });
 function copySign() {
   if (!signature.value) return;
   copyText();
-  message.success('已复制到剪贴板');
 }
 </script>

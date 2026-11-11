@@ -35,6 +35,12 @@
             <n-statistic label="破解所需时间" :value="timeToCrack" />
           </n-gi>
         </n-grid>
+        <n-alert v-if="detectedPatterns" type="warning" :show-icon="false" style="margin-top: 12px">
+          检测到可预测的模式:{{ detectedPatterns }}。攻击者会优先尝试这类组合,熵已按此扣减。
+        </n-alert>
+        <n-text depth="3" style="display: block; margin-top: 8px; font-size: 12px">
+          破解时间按离线攻击每秒 100 亿次猜测估算,仅供参考。
+        </n-text>
       </div>
     </n-card>
 
@@ -97,10 +103,15 @@
 
 <script setup lang="ts">
 import { useCopy } from '@/composable/copy';
-import { useValidation } from '@/composable/validation';
 import { computed, ref, watch } from 'vue';
 import { createToken } from '../token-generator/token-generator.service';
-import { estimateEntropy, scorePassword, timeToCrackLabel } from './password-strength.service';
+import {
+  analyzePassword,
+  patternLabels,
+  scoreFromEntropy,
+  scorePassword,
+  timeToCrackLabel,
+} from './password-strength.service';
 
 const password = ref('');
 
@@ -111,16 +122,16 @@ const validationAttrs = computed(() =>
     ? { validationStatus: undefined, feedback: '' }
     : { validationStatus: 'error', feedback: '密码长度应至少为 4 个字符。' },
 );
+const analysis = computed(() => analyzePassword(password.value.length < 4 ? '' : password.value));
+const entropy = computed(() => analysis.value.entropy);
+const detectedPatterns = computed(() =>
+  analysis.value.patterns.map(({ kind, token }) => `${patternLabels[kind]}「${token}」`).join('、'),
+);
+
 const score = computed(() => {
   if (password.value.length < 4) return 0;
 
-  return scorePassword(password.value);
-});
-
-const entropy = computed(() => {
-  if (password.value.length < 4) return 0;
-
-  return estimateEntropy(password.value);
+  return scoreFromEntropy(entropy.value);
 });
 
 const timeToCrack = computed(() => {

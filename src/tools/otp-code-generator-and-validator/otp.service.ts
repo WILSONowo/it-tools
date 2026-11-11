@@ -25,14 +25,18 @@ function computeHMACSha1(message: string, key: string) {
 function base32toHex(base32: string) {
   const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
+  // RFC 4648: ignore case, padding and the spaces/hyphens authenticator apps use to group the secret
   const bits = base32
-    .toUpperCase() // Since base 32, we coerce lowercase to uppercase
-    .replace(/=+$/, '')
+    .toUpperCase()
+    .replace(/[\s=-]/g, '')
     .split('')
-    .map((value) => base32Chars.indexOf(value).toString(2).padStart(5, '0'))
+    .map((char) => base32Chars.indexOf(char))
+    .filter((index) => index !== -1)
+    .map((index) => index.toString(2).padStart(5, '0'))
     .join('');
 
-  const hex = (bits.match(/.{1,8}/g) ?? []).map((chunk) => parseInt(chunk, 2).toString(16).padStart(2, '0')).join('');
+  // Leftover bits (< 8) are padding, not an extra key byte
+  const hex = (bits.match(/.{8}/g) ?? []).map((chunk) => parseInt(chunk, 2).toString(16).padStart(2, '0')).join('');
 
   return hex;
 }

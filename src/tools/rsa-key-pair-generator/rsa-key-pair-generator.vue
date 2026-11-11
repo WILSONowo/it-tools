@@ -27,12 +27,19 @@
     >
       {{ bitsValidationAttrs.feedback }}
     </n-alert>
+    <n-alert v-if="isInsecureKeySize(bits)" type="warning" :show-icon="false" style="margin-top: 8px">
+      {{ bits }} 位 RSA 密钥已不安全(512 位可在数小时内分解,1024 位已被各大标准弃用),仅可用于测试;实际使用请选择 2048
+      位或以上。
+    </n-alert>
+    <n-alert v-if="generateError" type="error" :show-icon="false" style="margin-top: 8px">
+      {{ generateError }}
+    </n-alert>
 
     <!-- 结果区 -->
     <template v-if="certs.publicKeyPem || certs.privateKeyPem">
       <div style="display: flex; align-items: center; justify-content: space-between; margin: 20px 0 10px">
         <n-h3 style="margin: 0">密钥对生成结果</n-h3>
-        <n-button text type="primary" @click="downloadZip">下载</n-button>
+        <n-button text type="primary" @click="downloadZip">下载 ZIP</n-button>
       </div>
 
       <n-form-item label="公钥" label-placement="top" style="margin: 0 0 14px">
@@ -65,17 +72,21 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useClipboard } from '@vueuse/core';
+import { useCopy } from '@/composable/copy';
 import { useMessage } from 'naive-ui';
 import { useValidation } from '@/composable/validation';
-import { withDefaultOnErrorAsync } from '@/utils/defaults';
 import { generateKeyPair } from './rsa-key-pair-generator.service';
+import { buildKeyPairZip, isInsecureKeySize, pemToHex } from './rsa-key-pair-export.service';
 
 const bits = ref(2048);
 const format = ref<'PEM' | 'HEX'>('PEM');
 const generating = ref(false);
+const generateError = ref('');
 
-const lengthOptions = [512, 1024, 2048, 3072, 4096].map((value) => ({ label: `${value}`, value }));
+const lengthOptions = [512, 1024, 2048, 3072, 4096].map((value) => ({
+  label: isInsecureKeySize(value) ? `${value}(不安全)` : `${value}`,
+  value,
+}));
 const formatOptions = [
   { label: 'PEM', value: 'PEM' },
   { label: 'HEX', value: 'HEX' },
@@ -95,60 +106,60 @@ const { attrs: bitsValidationAttrs } = useValidation({
   ],
 });
 
-function pemToHex(pem: string): string {
-  const body = pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
-  const bytes = atob(body);
-  let hex = '';
-  for (let i = 0; i < bytes.length; i++) hex += bytes.charCodeAt(i).toString(16).padStart(2, '0');
-  return hex;
-}
+// 连续点击「生成」时只保留最后一次的结果
+let generateRunId = 0;
 
 async function generate() {
   if (bitsValidationAttrs.validationStatus === 'error') return;
+  const runId = ++generateRunId;
   generating.value = true;
+  generateError.value = '';
   try {
-    const pair = await withDefaultOnErrorAsync(() => generateKeyPair({ bits: bits.value }), {
-      publicKeyPem: '',
-      privateKeyPem: '',
-    });
+    const pair = await generateKeyPair({ bits: bits.value });
+    if (runId !== generateRunId) return;
     certs.value = {
       publicKeyPem: pair.publicKeyPem,
       privateKeyPem: pair.privateKeyPem,
-      publicKeyHex: pair.publicKeyPem ? pemToHex(pair.publicKeyPem) : '',
-      privateKeyHex: pair.privateKeyPem ? pemToHex(pair.privateKeyPem) : '',
+      publicKeyHex: pemToHex(pair.publicKeyPem),
+      privateKeyHex: pemToHex(pair.privateKeyPem),
     };
+  } catch (e) {
+    if (runId !== generateRunId) return;
+    certs.value = { ...emptyCerts };
+    generateError.value = `密钥生成失败:${e instanceof Error ? e.message : String(e)}`;
   } finally {
-    generating.value = false;
+    if (runId === generateRunId) generating.value = false;
   }
 }
 
 const publicValue = computed(() => (format.value === 'PEM' ? certs.value.publicKeyPem : certs.value.publicKeyHex));
 const privateValue = computed(() => (format.value === 'PEM' ? certs.value.privateKeyPem : certs.value.privateKeyHex));
 
-const { copy: copyPub } = useClipboard({ source: publicValue });
-const { copy: copyPriv } = useClipboard({ source: privateValue });
+const { copy: copyPub } = useCopy({ source: publicValue, text: '公钥已复制' });
+const { copy: copyPriv } = useCopy({ source: privateValue, text: '私钥已复制' });
 function copyPublic() {
   if (!publicValue.value) return;
   copyPub();
-  message.success('公钥已复制');
 }
 function copyPrivate() {
   if (!privateValue.value) return;
   copyPriv();
-  message.success('私钥已复制');
 }
 
-function downloadZip() {
+async function downloadZip() {
   const pub = publicValue.value;
   const priv = privateValue.value;
   if (!pub && !priv) return;
-  const content = `public key:\n\n${pub}\n\nprivate key:\n\n${priv}`;
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'rsa-key-pair.txt';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  try {
+    const blob = await buildKeyPairZip({ publicKey: pub, privateKey: priv, format: format.value });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `rsa-key-pair-${bits.value}.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 0);
+  } catch (e) {
+    message.error(`打包下载失败:${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 generate();

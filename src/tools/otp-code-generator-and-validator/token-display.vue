@@ -12,7 +12,7 @@
             tokens.previous
           }}</n-button>
         </template>
-        <div>{{ previousCopied ? '已复制!' : '复制上一个 OTP' }}</div>
+        <div>{{ feedback(previousStatus, '复制上一个 OTP') }}</div>
       </n-tooltip>
       <n-tooltip trigger="hover" placement="bottom">
         <template #trigger>
@@ -26,7 +26,7 @@
             {{ tokens.current }}
           </n-button>
         </template>
-        <div>{{ currentCopied ? '已复制!' : '复制当前 OTP' }}</div>
+        <div>{{ feedback(currentStatus, '复制当前 OTP') }}</div>
       </n-tooltip>
       <n-tooltip trigger="hover" placement="bottom">
         <template #trigger>
@@ -34,19 +34,21 @@
             tokens.next
           }}</n-button>
         </template>
-        <div>{{ nextCopied ? '已复制!' : '复制下一个 OTP' }}</div>
+        <div>{{ feedback(nextStatus, '复制下一个 OTP') }}</div>
       </n-tooltip>
     </n-input-group>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useClipboard } from '@vueuse/core';
 import { toRefs } from 'vue';
+import { useCopyFeedback } from '@/composable/copy';
 
-const { copy: copyPrevious, copied: previousCopied } = useClipboard();
-const { copy: copyCurrent, copied: currentCopied } = useClipboard();
-const { copy: copyNext, copied: nextCopied } = useClipboard();
+const { copy: copyPrevious, status: previousStatus } = useCopyFeedback();
+const { copy: copyCurrent, status: currentStatus } = useCopyFeedback();
+const { copy: copyNext, status: nextStatus } = useCopyFeedback();
+const feedback = (status: string, idleText: string) =>
+  status === 'copied' ? '已复制!' : status === 'failed' ? '复制失败,请手动复制' : idleText;
 
 const props = defineProps<{ tokens: { previous: string; current: string; next: string } }>();
 const { tokens } = toRefs(props);

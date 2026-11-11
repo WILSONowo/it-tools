@@ -10,6 +10,9 @@
                 :options="Object.keys(languages).map((key) => ({ label: languageLabelMap[key], value: key }))"
               />
             </n-form-item>
+            <n-form-item label="助记词数量">
+              <n-select v-model:value="entropyBits" :options="wordCountOptions" @update:value="refreshEntropy" />
+            </n-form-item>
           </n-form>
         </n-gi>
         <n-gi span="2">
@@ -74,18 +77,22 @@ import {
   chineseTraditionalWordList,
   czechWordList,
   englishWordList,
-  entropyToMnemonic,
   frenchWordList,
-  generateEntropy,
   italianWordList,
   japaneseWordList,
   koreanWordList,
-  mnemonicToEntropy,
   portugueseWordList,
   spanishWordList,
 } from '@it-tools/bip39';
 import { Copy, Refresh } from '@vicons/tabler';
 import { computed, ref } from 'vue';
+import {
+  ALLOWED_ENTROPY_BITS,
+  entropyToMnemonic,
+  generateEntropy,
+  getEntropyError,
+  mnemonicToEntropy,
+} from './bip39.service';
 
 const languageLabelMap: Record<string, string> = {
   English: '英语',
@@ -113,7 +120,12 @@ const languages = {
   Spanish: spanishWordList,
 };
 
-const entropy = ref(generateEntropy());
+const wordCountOptions = ALLOWED_ENTROPY_BITS.map((bits) => ({
+  label: `${(bits * 33) / 32 / 11} 个(${bits} 位熵)`,
+  value: bits,
+}));
+const entropyBits = ref(128);
+const entropy = ref(generateEntropy(entropyBits.value));
 const passphraseInput = ref('');
 
 const language = ref<keyof typeof languages>('English');
@@ -131,12 +143,12 @@ const entropyValidation = useValidation({
   source: entropy,
   rules: [
     {
-      validator: (value) => value === '' || (value.length <= 32 && value.length >= 16 && value.length % 4 === 0),
-      message: '熵长度应大于等于 16、小于等于 32,且为 4 的倍数',
-    },
-    {
       validator: (value) => /^[a-fA-F0-9]*$/.test(value),
       message: '熵应为十六进制字符串',
+    },
+    {
+      validator: (value) => getEntropyError(value) === undefined,
+      message: '熵长度应为 32、40、48、56 或 64 个十六进制字符(128~256 位,步长 32 位)',
     },
   ],
 });
@@ -152,7 +164,7 @@ const mnemonicValidation = useValidation({
 });
 
 function refreshEntropy() {
-  entropy.value = generateEntropy();
+  entropy.value = generateEntropy(entropyBits.value);
 }
 
 const { copy: copyEntropy } = useCopy({ source: entropy, text: '熵已复制到剪贴板' });

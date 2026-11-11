@@ -45,8 +45,8 @@
             <n-select v-model:value="oaepHash" :options="hashOptions" />
           </n-form-item>
         </n-gi>
-        <n-gi v-else>
-          <n-form-item label="输出格式" label-placement="top">
+        <n-gi>
+          <n-form-item label="密文格式" label-placement="top">
             <n-select v-model:value="outputFormat" :options="formatOptions" />
           </n-form-item>
         </n-gi>
@@ -80,18 +80,22 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useClipboard } from '@vueuse/core';
-import { useMessage } from 'naive-ui';
-import forge from 'node-forge';
-
-const { pki, util } = forge;
+import { useCopy } from '@/composable/copy';
+import {
+  type CipherEncoding,
+  type OaepHash,
+  type RsaPadding,
+  oaepHashes,
+  rsaDecrypt,
+  rsaEncrypt,
+} from './rsa-encrypt-decrypt.service';
 
 const inputContent = ref('');
 const inputKey = ref('');
 const keyType = ref<'public' | 'private'>('public');
-const padding = ref<'RSAES-PKCS1-V1_5' | 'RSA-OAEP'>('RSAES-PKCS1-V1_5');
-const oaepHash = ref('SHA256');
-const outputFormat = ref<'base64' | 'hex'>('base64');
+const padding = ref<RsaPadding>('RSAES-PKCS1-V1_5');
+const oaepHash = ref<OaepHash>('SHA256');
+const outputFormat = ref<CipherEncoding>('base64');
 const result = ref('');
 const error = ref('');
 
@@ -103,42 +107,26 @@ const paddingOptions = [
   { label: 'PKCS1Padding', value: 'RSAES-PKCS1-V1_5' },
   { label: 'OAEP', value: 'RSA-OAEP' },
 ];
-const hashOptions = ['SHA1', 'SHA256', 'SHA384', 'SHA512'].map((label) => ({ label, value: label }));
+const hashOptions = oaepHashes.map((label) => ({ label, value: label }));
 const formatOptions = [
   { label: 'base64', value: 'base64' },
   { label: 'hex', value: 'hex' },
 ];
 
-const message = useMessage();
-
-function scheme(): 'RSAES-PKCS1-V1_5' | 'RSA-OAEP' {
-  return padding.value;
-}
-
-function encodeOutput(bytes: string): string {
-  if (outputFormat.value === 'hex') return util.bytesToHex(bytes);
-  return util.encode64(bytes);
-}
-
-function parseKey(pemOrHex: string): forge.pki.rsa.PublicKey | forge.pki.rsa.PrivateKey {
-  const text = pemOrHex.trim();
-  if (text.startsWith('-----BEGIN')) {
-    return keyType.value === 'public' ? pki.publicKeyFromPem(text) : pki.privateKeyFromPem(text);
-  }
-  throw new Error('当前仅支持 PEM 格式密钥');
-}
-
 function doRsaEncrypt() {
   error.value = '';
   result.value = '';
   try {
-    const key = parseKey(inputKey.value);
     if (keyType.value !== 'public') {
       throw new Error('RSA 加密请选择"公钥"密钥类型并粘贴公钥');
     }
-    const pub = key as forge.pki.rsa.PublicKey;
-    const bytes = pub.encrypt(util.encodeUtf8(inputContent.value), scheme());
-    result.value = encodeOutput(bytes);
+    result.value = rsaEncrypt({
+      publicKeyPem: inputKey.value,
+      plainText: inputContent.value,
+      padding: padding.value,
+      oaepHash: oaepHash.value,
+      encoding: outputFormat.value,
+    });
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -148,17 +136,16 @@ function doRsaDecrypt() {
   error.value = '';
   result.value = '';
   try {
-    const key = parseKey(inputKey.value);
     if (keyType.value !== 'private') {
       throw new Error('RSA 解密请选择"私钥"密钥类型并粘贴私钥');
     }
-    const priv = key as forge.pki.rsa.PrivateKey;
-    let cipherBytes: string;
-    if (outputFormat.value === 'hex') cipherBytes = util.hexToBytes(inputContent.value.trim());
-    else if (outputFormat.value === 'base64') cipherBytes = util.decode64(inputContent.value.trim());
-    else cipherBytes = util.encodeUtf8(inputContent.value);
-    const bytes = priv.decrypt(cipherBytes, scheme());
-    result.value = util.decodeUtf8(bytes);
+    result.value = rsaDecrypt({
+      privateKeyPem: inputKey.value,
+      cipherText: inputContent.value,
+      padding: padding.value,
+      oaepHash: oaepHash.value,
+      encoding: outputFormat.value,
+    });
   } catch (e) {
     error.value = (e as Error).message;
   }
@@ -171,10 +158,9 @@ function clearAll() {
   error.value = '';
 }
 
-const { copy: copyText } = useClipboard({ source: result });
+const { copy: copyText } = useCopy({ source: result, text: '已复制到剪贴板' });
 function copyResult() {
   if (!result.value) return;
   copyText();
-  message.success('已复制到剪贴板');
 }
 </script>

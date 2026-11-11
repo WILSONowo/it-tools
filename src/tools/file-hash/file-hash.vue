@@ -15,29 +15,30 @@
     </n-text>
 
     <n-alert v-if="error" type="error" :show-icon="false">{{ error }}</n-alert>
-    <n-spin :show="loading">
-      <div style="min-height: 40px">
-        <div v-if="loading" style="padding: 10px">正在计算...大文件可能较慢</div>
-        <n-table v-else size="small" :bordered="false">
-          <thead>
-            <tr>
-              <th>算法</th>
-              <th>结果 (HEX)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in results" :key="row.algorithm">
-              <td style="white-space: nowrap; width: 110px">{{ row.algorithm }}</td>
-              <td style="font-family: monospace; word-break: break-all">
-                <n-input-group>
-                  <input-copyable :value="row.hash" readonly />
-                </n-input-group>
-              </td>
-            </tr>
-          </tbody>
-        </n-table>
+    <div style="min-height: 40px">
+      <div v-if="loading" style="padding: 10px">
+        <n-text depth="2">正在分块计算...大文件可能较慢</n-text>
+        <n-progress type="line" :percentage="progress" indicator-placement="inside" style="margin-top: 8px" />
       </div>
-    </n-spin>
+      <n-table v-else-if="results.length" size="small" :bordered="false">
+        <thead>
+          <tr>
+            <th>算法</th>
+            <th>结果 (HEX)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in results" :key="row.algorithm">
+            <td style="white-space: nowrap; width: 110px">{{ row.algorithm }}</td>
+            <td style="font-family: monospace; word-break: break-all">
+              <n-input-group>
+                <input-copyable :value="row.hash" readonly />
+              </n-input-group>
+            </td>
+          </tr>
+        </tbody>
+      </n-table>
+    </div>
   </n-card>
 </template>
 
@@ -45,95 +46,58 @@
 import { computed, ref } from 'vue';
 import type { UploadFileInfo } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
-import {
-  createMD5,
-  createSHA1,
-  createSHA224,
-  createSHA256,
-  createSHA384,
-  createSHA512,
-  createSHA3,
-  createSM3,
-} from 'hash-wasm';
 import { formatBytes } from '@/utils/convert';
 import InputCopyable from '../../components/InputCopyable.vue';
+import { HashCancelledError, getFileSizeError, hashBlob } from './file-hash.service';
 
 const UploadIcon = Upload;
 const file = ref<File | null>(null);
 const loading = ref(false);
+const progress = ref(0);
 const error = ref('');
 const results = ref<{ algorithm: string; hash: string }[]>([]);
 
 const fileName = computed(() => file.value?.name ?? '');
 const formatSize = computed(() => (file.value ? formatBytes(file.value.size) : ''));
 
-async function hashFile(algo: string, data: ArrayBuffer): Promise<string> {
-  const bytes = new Uint8Array(data);
-  const CHUNK = 1024 * 1024 * 8;
-  let hasher: Awaited<ReturnType<typeof createMD5>>;
-  switch (algo) {
-    case 'MD5':
-      hasher = await createMD5();
-      break;
-    case 'SHA-1':
-      hasher = await createSHA1();
-      break;
-    case 'SHA-224':
-      hasher = await createSHA224();
-      break;
-    case 'SHA-256':
-      hasher = await createSHA256();
-      break;
-    case 'SHA-384':
-      hasher = await createSHA384();
-      break;
-    case 'SHA-512':
-      hasher = await createSHA512();
-      break;
-    case 'SHA3-256':
-      hasher = await createSHA3(256);
-      break;
-    case 'SM3':
-      hasher = await createSM3();
-      break;
-    default:
-      throw new Error('unknown algo');
-  }
-  await hasher.init();
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    await hasher.update(bytes.subarray(i, i + CHUNK));
-  }
-  return hasher.digest('hex');
-}
+// 每次选择文件递增,旧的计算发现自己过期后立即停止,避免结果互相覆盖
+let runId = 0;
 
 function onFilePicked({ file: picked }: { file: UploadFileInfo }) {
   if (!picked?.file) return false;
   file.value = picked.file;
-  compute();
+  compute(picked.file);
   return false;
 }
 
-async function compute() {
-  if (!file.value) return;
-  loading.value = true;
+async function compute(target: File) {
+  const currentRun = ++runId;
   error.value = '';
   results.value = [];
-  try {
-    const data = await file.value.arrayBuffer();
-    const algos = ['MD5', 'SHA-1', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512', 'SHA3-256', 'SM3'];
-    const rows: { algorithm: string; hash: string }[] = [];
-    for (const algo of algos) {
-      try {
-        rows.push({ algorithm: algo, hash: await hashFile(algo, data) });
-      } catch {
-        // skip algo
-      }
-    }
-    results.value = rows;
-  } catch (e) {
-    error.value = (e as Error).message;
-  } finally {
+  progress.value = 0;
+
+  const sizeError = getFileSizeError(target.size);
+  if (sizeError) {
     loading.value = false;
+    error.value = sizeError;
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const rows = await hashBlob({
+      blob: target,
+      onProgress: (ratio) => {
+        if (currentRun === runId) progress.value = Math.floor(ratio * 100);
+      },
+      isCancelled: () => currentRun !== runId,
+    });
+    if (currentRun === runId) results.value = rows;
+  } catch (e) {
+    if (e instanceof HashCancelledError || currentRun !== runId) return;
+    error.value = `计算失败:${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    if (currentRun === runId) loading.value = false;
   }
 }
 </script>

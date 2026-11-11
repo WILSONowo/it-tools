@@ -54,6 +54,7 @@ import { useCopy } from '@/composable/copy';
 import { v4 as uuidV4, v1 as uuidV1 } from 'uuid';
 import { computedRefreshable } from '@/composable/computedRefreshable';
 import { ref } from 'vue';
+import { generateUlid } from './ulid.service';
 
 const count = ref(10);
 const type = ref<'uuid' | 'ulid' | 'nano' | 'uuidv7'>('uuid');
@@ -86,19 +87,6 @@ function randomBytes(count: number): Uint8Array {
     return cryptoObj.getRandomValues(new Uint8Array(count));
   }
   return new Uint8Array(count).map(() => Math.floor(Math.random() * 256));
-}
-
-function generateUlid(): string {
-  const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-  const time = Date.now();
-  const timePart = time.toString(36).toUpperCase();
-  const buffer = randomBytes(16);
-  let randomness = '';
-  for (let i = 0; i < 16 - timePart.length; i++) {
-    randomness += alphabet[buffer[i] % 32];
-  }
-  const value = `${timePart}${randomness}`.slice(0, 26);
-  return uppercase.value ? value : value.toLowerCase();
 }
 
 function generateUuidV7(): string {
@@ -136,7 +124,8 @@ function generateOne(): string {
     const raw = version.value === 'v1' ? uuidV1() : uuidV4();
     return formatUuid(raw);
   }
-  if (type.value === 'ulid') return generateUlid();
+  // ULID 规范的标准形式为大写 Crockford Base32(解码时不区分大小写)
+  if (type.value === 'ulid') return uppercase.value ? generateUlid() : generateUlid().toLowerCase();
   if (type.value === 'uuidv7') return generateUuidV7();
   return generateNanoId();
 }
