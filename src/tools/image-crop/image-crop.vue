@@ -79,12 +79,14 @@
 </template>
 
 <script setup lang="ts">
+import { get2dContext } from '@/utils/canvas';
 import { nextTick, onBeforeUnmount, ref } from 'vue';
 import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
+import { downloadBlob, formatBytes } from '../_media/image-helpers';
 
 const UploadIcon = Upload;
 const message = useMessage();
@@ -125,18 +127,6 @@ const SIZES: Record<string, [number, number]> = {
   two: [413, 579],
   greatTwo: [423, 626],
 };
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  const units = ['KB', 'MB', 'GB'];
-  let v = bytes / 1024;
-  let u = 0;
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024;
-    u++;
-  }
-  return v.toFixed(2) + ' ' + units[u];
-}
 
 function onPick({ file }: { file: UploadFileInfo }) {
   if (!file?.file) return false;
@@ -219,31 +209,50 @@ function destroy() {
   setCircleStyle(false);
 }
 
+/** Natural (original pixel) size of the image: setData() works in natural pixels, not displayed size. */
+function naturalSize(c: Cropper): { nw: number; nh: number } {
+  const imgData = c.getImageData();
+  return { nw: imgData.naturalWidth, nh: imgData.naturalHeight };
+}
+
+/** Center a crop box with the aspect ratio w0:h0 as large as the image allows. */
+function centerBox(c: Cropper, w0: number, h0: number) {
+  const { nw, nh } = naturalSize(c);
+  const scale = Math.min(nw / w0, nh / h0);
+  const w = Math.max(1, Math.round(w0 * scale));
+  const h = Math.max(1, Math.round(h0 * scale));
+  c.setAspectRatio(w0 / h0);
+  c.setData({ x: (nw - w) / 2, y: (nh - h) / 2, width: w, height: h });
+}
+
+/** Exact output size (px) for the active size preset, or null for free cropping. */
+function targetSize(): [number, number] | null {
+  const isCircle = shape.value === 'circle';
+  let size: [number, number] | null = null;
+  if (sizeKey.value === 'custom') size = [Math.max(1, customW.value || 1), Math.max(1, customH.value || 1)];
+  else if (SIZES[sizeKey.value]) size = SIZES[sizeKey.value];
+  if (size && isCircle) return [size[0], size[0]];
+  return size;
+}
+
 function applySize() {
   if (!cropper) return;
   const isCircle = shape.value === 'circle';
   if (sizeKey.value === 'raw') {
-    const imgData = cropper.getImageData();
-    let w = Math.round(imgData.width * 0.8);
-    let h = isCircle ? w : Math.round(imgData.height * 0.8);
+    const { nw, nh } = naturalSize(cropper);
+    const side = Math.round(Math.min(nw, nh) * 0.8);
+    const w = isCircle ? side : Math.round(nw * 0.8);
+    const h = isCircle ? side : Math.round(nh * 0.8);
     cropper.setAspectRatio(isCircle ? 1 : NaN);
-    cropper.setData({ x: (imgData.width - w) / 2, y: (imgData.height - h) / 2, width: w, height: h });
+    cropper.setData({ x: (nw - w) / 2, y: (nh - h) / 2, width: w, height: h });
     return;
   }
   if (sizeKey.value === 'custom') {
     applyCustom();
     return;
   }
-  const s = SIZES[sizeKey.value];
-  if (s) {
-    const [w0, h0] = s;
-    const imgData = cropper.getImageData();
-    const scale = Math.min(imgData.width / w0, imgData.height / h0);
-    const w = Math.round(w0 * scale);
-    const h = isCircle ? w : Math.round(h0 * scale);
-    cropper.setAspectRatio(isCircle ? 1 : w0 / h0);
-    cropper.setData({ x: (imgData.width - w) / 2, y: (imgData.height - h) / 2, width: w, height: h });
-  }
+  const target = targetSize();
+  if (target) centerBox(cropper, target[0], target[1]);
 }
 
 function onSizeKey() {
@@ -255,15 +264,8 @@ function onSizeKey() {
 function applyCustom() {
   if (!cropper) return;
   if (sizeKey.value !== 'custom') return;
-  const isCircle = shape.value === 'circle';
-  const w0 = Math.max(1, customW.value || 1);
-  const h0 = isCircle ? w0 : Math.max(1, customH.value || 1);
-  const imgData = cropper.getImageData();
-  const scale = Math.min(imgData.width / w0, imgData.height / h0);
-  const w = Math.max(1, Math.round(w0 * scale));
-  const h = isCircle ? w : Math.max(1, Math.round(h0 * scale));
-  cropper.setAspectRatio(isCircle ? 1 : w0 / h0);
-  cropper.setData({ x: (imgData.width - w) / 2, y: (imgData.height - h) / 2, width: w, height: h });
+  const target = targetSize();
+  if (target) centerBox(cropper, target[0], target[1]);
 }
 
 function reinitCropper() {
@@ -292,7 +294,6 @@ function refreshLive() {
   try {
     let canvas = cropper.getCroppedCanvas({ maxWidth: 240, maxHeight: 240, imageSmoothingEnabled: true });
     if (shape.value === 'circle') canvas = getRoundedCanvas(canvas);
-    if (liveUrl.value) URL.revokeObjectURL(liveUrl.value);
     liveUrl.value = canvas.toDataURL('image/png');
   } catch {
     // ignore
@@ -303,7 +304,7 @@ function getRoundedCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = source.width;
   canvas.height = source.height;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = get2dContext(canvas);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(source, 0, 0);
   ctx.globalCompositeOperation = 'destination-in';
@@ -313,23 +314,42 @@ function getRoundedCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
   return canvas;
 }
 
+/** Redraw onto a canvas of exactly w×h px (getCroppedCanvas may be off by a pixel from rounding). */
+function toExactSize(source: HTMLCanvasElement, w: number, h: number): HTMLCanvasElement {
+  if (source.width === w && source.height === h) return source;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = get2dContext(canvas);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, w, h);
+  return canvas;
+}
+
 function doCrop() {
   if (!cropper) return;
-  const w = dataW.value || 100;
-  const h = dataH.value || 100;
-  let canvas = cropper.getCroppedCanvas({ imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+  const target = targetSize();
+  let canvas = cropper.getCroppedCanvas({
+    imageSmoothingEnabled: true,
+    imageSmoothingQuality: 'high',
+    ...(target ? { width: target[0], height: target[1] } : {}),
+  });
+  if (!canvas) {
+    message.error('裁剪失败,请重新选择裁剪区域');
+    return;
+  }
+  // 一寸/两寸等尺寸预设输出精确像素(如 295×413)
+  if (target) canvas = toExactSize(canvas, target[0], target[1]);
   if (shape.value === 'circle') canvas = getRoundedCanvas(canvas);
   const base = fileName.value ? fileName.value.replace(/\.[^.]+$/, '') : 'result';
   canvas.toBlob((blob) => {
-    if (!blob) return;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = base + '_cropped.png';
-    a.click();
-    URL.revokeObjectURL(a.href);
+    if (!blob) {
+      message.error('图片导出失败');
+      return;
+    }
+    downloadBlob(blob, `${base}_cropped.png`);
   }, 'image/png');
-  void w;
-  void h;
 }
 
 function reset() {
@@ -344,6 +364,7 @@ function reset() {
 }
 
 onBeforeUnmount(() => {
+  if (liveTimer) clearTimeout(liveTimer);
   destroy();
 });
 </script>

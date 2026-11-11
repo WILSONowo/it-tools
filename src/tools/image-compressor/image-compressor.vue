@@ -36,7 +36,7 @@
           <div style="width: 100%">
             <n-slider v-model:value="quality" :min="1" :max="100" :step="1" />
             <div style="text-align: right">
-              <n-text depth="3" style="font-size: 12px">质量 {{ quality }}%</n-text>
+              <n-text depth="3" style="font-size: 12px">质量 {{ quality }}%(用于 WebP 输出)</n-text>
             </div>
           </div>
         </n-form-item>
@@ -44,6 +44,11 @@
       <n-gi>
         <n-form-item label="尺寸" label-placement="top" style="margin: 0">
           <n-select v-model:value="sizePreset" :options="sizeOptions" />
+        </n-form-item>
+      </n-gi>
+      <n-gi>
+        <n-form-item label="PNG 处理方式" label-placement="top" style="margin: 0">
+          <n-select v-model:value="pngMode" :options="pngModeOptions" />
         </n-form-item>
       </n-gi>
       <n-gi v-if="sizePreset === 'custom'">
@@ -64,10 +69,16 @@
       </n-radio-group>
     </n-space>
 
-    <n-space align="center" style="margin-top: 8px">
-      <n-checkbox v-model:checked="pngLossless">PNG 无损优化</n-checkbox>
-      <n-checkbox v-model:checked="keepMeta">保留元数据(尽力)</n-checkbox>
-    </n-space>
+    <n-text
+      v-if="sizePreset !== 'raw' && sizePreset !== 'custom'"
+      depth="3"
+      style="display: block; margin-top: 8px; font-size: 12px"
+    >
+      证件照尺寸会按目标比例居中裁剪后缩放,不会拉伸变形。
+    </n-text>
+    <n-text depth="3" style="display: block; margin-top: 4px; font-size: 12px">
+      注意:浏览器重新编码图片时不会保留 EXIF 等元数据(拍摄信息、GPS 定位等)。
+    </n-text>
 
     <n-space justify="center" style="margin: 18px 0">
       <n-button type="primary" :loading="processing" :disabled="queue.length === 0" @click="start"> 开始压缩 </n-button>
@@ -107,7 +118,7 @@
         </tbody>
       </n-table>
       <n-space justify="center" style="margin-top: 14px">
-        <n-button secondary :disabled="results.length === 0" @click="downloadAllZip">全部下载(ZIP)</n-button>
+        <n-button secondary :disabled="results.length === 0" @click="downloadZip">全部下载(ZIP)</n-button>
       </n-space>
     </template>
 
@@ -136,25 +147,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { get2dContext } from '@/utils/canvas';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
-import JSZip from 'jszip';
 import UPNG from 'upng-js';
-import { canvasToPngBlob, formatBytes } from '@/utils/image-encode';
+import {
+  canvasToBlob,
+  containSize,
+  coverCropRect,
+  downloadAllZip,
+  downloadBlob,
+  extForMime,
+  formatBytes,
+  isSupportedImage,
+  loadImage,
+  replaceExtension,
+} from '../_media/image-helpers';
 
 const UploadIcon = Upload;
 const message = useMessage();
 
 type ResultRow = {
   name: string;
+  blob: Blob;
   before: number;
   after: number;
   percent: number;
   beforeUrl: string;
   afterUrl: string;
 };
+type PngMode = 'lossless' | 'quant256' | 'webp';
 
 const queue = ref<File[]>([]);
 const quality = ref(85);
@@ -162,10 +186,11 @@ const sizePreset = ref('raw');
 const customW = ref(800);
 const customH = ref(600);
 const keepRatio = ref(true);
-const pngLossless = ref(true);
-const keepMeta = ref(false);
+const pngMode = ref<PngMode>('lossless');
 const processing = ref(false);
 const results = ref<ResultRow[]>([]);
+// Bumped on every run and on unmount so a stale run drops its results.
+let runId = 0;
 
 const compareShow = ref(false);
 const compareRow = ref<ResultRow | null>(null);
@@ -188,10 +213,15 @@ const PRESETS: Record<string, { w: number; h: number } | null> = {
   two: { w: 413, h: 579 },
   greatTwo: { w: 423, h: 626 },
 };
+const pngModeOptions = [
+  { label: 'PNG 无损优化', value: 'lossless' },
+  { label: 'PNG 256 色(有损)', value: 'quant256' },
+  { label: '转为 WebP', value: 'webp' },
+];
 
 const totalSaved = computed(() => {
   const saved = results.value.reduce((s, r) => s + (r.before - r.after), 0);
-  return saved > 0 ? formatBytes(saved) : '0 B';
+  return formatBytes(Math.max(0, saved));
 });
 
 function onPick({ file }: { file: UploadFileInfo }) {
@@ -201,7 +231,7 @@ function onPick({ file }: { file: UploadFileInfo }) {
     message.error('单个文件不能超过 50MB');
     return false;
   }
-  if (!/image\/(jpeg|png|gif|bmp|webp)|\.(jpe?g|png|gif|bmp|webp)$/i.test(f.type + f.name)) {
+  if (!isSupportedImage(f)) {
     message.error('不支持的图片格式');
     return false;
   }
@@ -209,123 +239,134 @@ function onPick({ file }: { file: UploadFileInfo }) {
   return false;
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('图片加载失败'));
-    img.src = url;
-  });
-}
-
-function getTargetSize(img: HTMLImageElement): { w: number; h: number } {
-  const naturalW = img.naturalWidth;
-  const naturalH = img.naturalHeight;
+/** Target canvas size plus the source rectangle to draw (cover-crop for photo presets). */
+function getLayout(img: HTMLImageElement) {
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  const full = { sx: 0, sy: 0, sw: nw, sh: nh };
   const preset = PRESETS[sizePreset.value];
-  if (preset) return { w: preset.w, h: preset.h };
+  if (preset) return { w: preset.w, h: preset.h, src: coverCropRect(nw, nh, preset.w, preset.h) };
   if (sizePreset.value === 'custom' && customW.value > 0 && customH.value > 0) {
-    if (keepRatio.value) {
-      const ratio = Math.min(customW.value / naturalW, customH.value / naturalH);
-      return { w: Math.max(1, Math.round(naturalW * ratio)), h: Math.max(1, Math.round(naturalH * ratio)) };
-    }
-    return { w: customW.value, h: customH.value };
+    if (keepRatio.value) return { ...containSize(nw, nh, customW.value, customH.value), src: full };
+    return { w: customW.value, h: customH.value, src: full };
   }
-  return { w: naturalW, h: naturalH };
+  return { w: nw, h: nh, src: full };
 }
 
 function drawToCanvas(img: HTMLImageElement, transparent: boolean): HTMLCanvasElement {
-  const { w, h } = getTargetSize(img);
+  const { w, h, src } = getLayout(img);
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = get2dContext(canvas);
   ctx.imageSmoothingQuality = 'high';
   if (!transparent) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
   }
-  ctx.drawImage(img, 0, 0, w, h);
+  ctx.drawImage(img, src.sx, src.sy, src.sw, src.sh, 0, 0, w, h);
   return canvas;
 }
 
-async function pngLosslessOptimize(file: File): Promise<Blob | null> {
-  const buf = await file.arrayBuffer();
+/**
+ * Re-encode a PNG at its original size with UPNG. cnum = 0 is lossless,
+ * cnum = 256 quantises to a 256 colour palette (lossy).
+ * Returns null when the file cannot be handled here.
+ */
+async function encodePngOriginalSize(file: File, cnum: number): Promise<Blob | null> {
   try {
+    const buf = await file.arrayBuffer();
     const decoded = UPNG.decode(buf);
-    const rgba = UPNG.toRGBA8(decoded);
-    const out = UPNG.encode(rgba, decoded.width, decoded.height, 256); // 尝试无损调色板
-    if (out.byteLength < buf.byteLength) return new Blob([out], { type: 'image/png' });
-    const out2 = UPNG.encode(rgba, decoded.width, decoded.height, 0); // 尝试真彩色无损压缩
-    if (out2.byteLength < buf.byteLength) return new Blob([out2], { type: 'image/png' });
-    return null;
+    // 16 位 PNG 经 toRGBA8 会降为 8 位,无损模式下不能这样做
+    if (cnum === 0 && decoded.depth > 8) return null;
+    // toRGBA8 实际返回每一帧的 ArrayBuffer 数组(类型声明有误)
+    const frames = UPNG.toRGBA8(decoded) as unknown as ArrayBuffer[];
+    const delays = frames.length > 1 ? (decoded.frames as { delay: number }[]).map((f) => f.delay) : undefined;
+    const out = UPNG.encode(frames as unknown as ArrayBuffer, decoded.width, decoded.height, cnum, delays);
+    return new Blob([out], { type: 'image/png' });
   } catch {
     return null;
   }
 }
 
-async function processFile(file: File): Promise<ResultRow | null> {
-  const before = file.size;
-  const beforeUrl = URL.createObjectURL(file);
+function encodePngFromCanvas(canvas: HTMLCanvasElement, cnum: number): Blob {
+  const data = get2dContext(canvas).getImageData(0, 0, canvas.width, canvas.height);
+  const out = UPNG.encode([data.data.buffer] as unknown as ArrayBuffer, canvas.width, canvas.height, cnum);
+  return new Blob([out], { type: 'image/png' });
+}
 
-  // PNG 无损优化:不做尺寸改变时
-  if (pngLossless.value && /\.png$/i.test(file.name) && sizePreset.value === 'raw') {
-    const opt = await pngLosslessOptimize(file);
-    if (opt) {
-      const afterUrl = URL.createObjectURL(opt);
-      return {
-        name: file.name,
-        before,
-        after: opt.size,
-        percent: Math.round(((opt.size - before) / before) * 100),
-        beforeUrl,
-        afterUrl,
-      };
-    }
-  }
-
-  const img = await loadImage(beforeUrl);
-  const transparent = /\.(png|gif|webp)$/i.test(file.name);
-  const canvas = drawToCanvas(img, transparent);
-  const isPngIn = /\.png$/i.test(file.name);
-  const q = quality.value / 100;
-
-  let blob: Blob;
-  if (pngLossless.value && isPngIn && sizePreset.value === 'raw' && q >= 0.95) {
-    blob = await canvasToPngBlob(canvas);
-  } else {
-    // JPG for photos(不透明), webp 一般场景(透明也支持)
-    blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('压缩失败'))), 'image/webp', q);
-    });
-  }
-
-  const afterUrl = URL.createObjectURL(blob);
+function makeRow(file: File, blob: Blob, name: string): ResultRow {
   return {
-    name: file.name.replace(/\.[^.]+$/, '') + (blob.type === 'image/png' ? '.png' : '.webp'),
-    before,
+    name,
+    blob,
+    before: file.size,
     after: blob.size,
-    percent: Math.round(((blob.size - before) / before) * 100),
-    beforeUrl,
-    afterUrl,
+    percent: Math.round(((blob.size - file.size) / file.size) * 100),
+    beforeUrl: URL.createObjectURL(file),
+    afterUrl: URL.createObjectURL(blob),
   };
+}
+
+async function processFile(file: File): Promise<ResultRow> {
+  const isPng = file.type === 'image/png' || /\.png$/i.test(file.name);
+  const mode = pngMode.value;
+
+  if (isPng && mode !== 'webp') {
+    const cnum = mode === 'lossless' ? 0 : 256;
+    if (sizePreset.value === 'raw') {
+      const blob = await encodePngOriginalSize(file, cnum);
+      // 重新编码反而更大时保留原文件
+      if (blob) return makeRow(file, blob.size < file.size ? blob : file, replaceExtension(file.name, 'png'));
+      // 无法无损处理(如 16 位 PNG)时原样保留
+      if (mode === 'lossless') return makeRow(file, file, file.name);
+    }
+    const img = await loadImage(file);
+    const blob = encodePngFromCanvas(drawToCanvas(img, true), cnum);
+    return makeRow(file, blob, replaceExtension(file.name, 'png'));
+  }
+
+  const img = await loadImage(file);
+  const transparent = isPng || /\.(gif|webp)$/i.test(file.name);
+  const canvas = drawToCanvas(img, transparent);
+  const blob = await canvasToBlob(canvas, 'image/webp', quality.value / 100);
+  // 不支持 WebP 编码的浏览器会返回 PNG,扩展名按实际类型
+  return makeRow(file, blob, replaceExtension(file.name, extForMime(blob.type, 'png')));
+}
+
+function revokeRow(row: ResultRow) {
+  URL.revokeObjectURL(row.beforeUrl);
+  URL.revokeObjectURL(row.afterUrl);
+}
+
+function clearResults() {
+  results.value.forEach(revokeRow);
+  results.value = [];
+  compareShow.value = false;
+  compareRow.value = null;
 }
 
 async function start() {
   if (queue.value.length === 0) return;
+  const id = ++runId;
   processing.value = true;
-  results.value = [];
+  clearResults();
   try {
-    for (const f of queue.value) {
+    for (const f of [...queue.value]) {
       try {
         const row = await processFile(f);
-        if (row) results.value.push(row);
+        if (id !== runId) {
+          revokeRow(row);
+          return;
+        }
+        results.value.push(row);
       } catch {
+        if (id !== runId) return;
         message.error(`压缩失败:${f.name}`);
       }
     }
     if (results.value.length > 0) message.success('压缩完成');
   } finally {
-    processing.value = false;
+    if (id === runId) processing.value = false;
   }
 }
 
@@ -336,26 +377,21 @@ function compare(row: ResultRow) {
 }
 
 function downloadOne(row: ResultRow) {
-  const a = document.createElement('a');
-  a.href = row.afterUrl;
-  a.download = row.name;
-  a.click();
+  downloadBlob(row.blob, row.name);
 }
 
-async function downloadAllZip() {
-  const zip = new JSZip();
-  const folder = zip.folder('compressed')!;
-  for (const row of results.value) {
-    const res = await fetch(row.afterUrl);
-    folder.file(row.name, await res.blob());
-  }
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'compressed-images.zip';
-  a.click();
-  URL.revokeObjectURL(a.href);
+function downloadZip() {
+  return downloadAllZip(
+    results.value.map((r) => ({ name: r.name, blob: r.blob })),
+    'compressed-images.zip',
+    'compressed',
+  );
 }
+
+onBeforeUnmount(() => {
+  runId++;
+  clearResults();
+});
 </script>
 
 <style scoped>

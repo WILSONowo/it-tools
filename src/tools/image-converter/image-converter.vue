@@ -81,19 +81,30 @@
         </tbody>
       </n-table>
       <n-space justify="center" style="margin-top: 14px">
-        <n-button secondary @click="downloadAllZip">全部下载(ZIP)</n-button>
+        <n-button secondary @click="downloadZip">全部下载(ZIP)</n-button>
       </n-space>
     </template>
   </n-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { get2dContext } from '@/utils/canvas';
+import { onBeforeUnmount, ref } from 'vue';
 import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
-import JSZip from 'jszip';
-import { canvasToBmpBlob, canvasToIcoBlob, formatBytes } from '@/utils/image-encode';
+import { canvasToBmpBlob, canvasToIcoBlob } from '@/utils/image-encode';
+import {
+  canvasToBlob,
+  coverCropRect,
+  downloadAllZip,
+  downloadBlob,
+  extForMime,
+  formatBytes,
+  isSupportedImage,
+  loadImage,
+  replaceExtension,
+} from '../_media/image-helpers';
 
 const UploadIcon = Upload;
 const message = useMessage();
@@ -106,6 +117,7 @@ const quality = ref(90);
 const icoSize = ref(256);
 const processing = ref(false);
 const results = ref<Row[]>([]);
+let runId = 0;
 
 const formatOptions = [
   { label: 'JPG', value: 'jpg' },
@@ -115,11 +127,12 @@ const formatOptions = [
   { label: 'ICO', value: 'ico' },
 ];
 const icoSizeOptions = [16, 24, 32, 48, 64, 128, 256].map((s) => ({ label: `${s}×${s}`, value: s }));
+const MIME: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
 
 function onPick({ file }: { file: UploadFileInfo }) {
   if (!file?.file) return false;
   const f = file.file as File;
-  if (!/image\/(jpeg|png|gif|bmp|webp)|\.(jpe?g|png|gif|bmp|webp)$/i.test(f.type + f.name)) {
+  if (!isSupportedImage(f)) {
     message.error('不支持的图片格式');
     return false;
   }
@@ -127,20 +140,11 @@ function onPick({ file }: { file: UploadFileInfo }) {
   return false;
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('图片加载失败'));
-    img.src = url;
-  });
-}
-
 function drawToCanvas(img: HTMLImageElement, keepAlpha: boolean): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = get2dContext(canvas);
   ctx.imageSmoothingQuality = 'high';
   if (!keepAlpha) {
     ctx.fillStyle = '#ffffff';
@@ -150,99 +154,77 @@ function drawToCanvas(img: HTMLImageElement, keepAlpha: boolean): HTMLCanvasElem
   return canvas;
 }
 
-async function encodeCanvas(canvas: HTMLCanvasElement): Promise<{ blob: Blob; ext: string }> {
-  const q = quality.value / 100;
-  switch (outFormat.value) {
-    case 'jpg':
-      return {
-        blob: await new Promise<Blob>((res, rej) =>
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error('转换失败'))), 'image/jpeg', q),
-        ),
-        ext: 'jpg',
-      };
-    case 'png':
-      return {
-        blob: await new Promise<Blob>((res, rej) =>
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error('转换失败'))), 'image/png'),
-        ),
-        ext: 'png',
-      };
-    case 'bmp':
-      return { blob: canvasToBmpBlob(canvas), ext: 'bmp' };
-    case 'ico': {
-      const blob = await canvasToIcoBlob(canvas);
-      return { blob, ext: 'ico' };
-    }
-    default:
-      return {
-        blob: await new Promise<Blob>((res, rej) =>
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error('转换失败'))), 'image/webp', q),
-        ),
-        ext: 'webp',
-      };
-  }
+/** Square icon canvas, cover-cropped from the center. */
+function drawIcoCanvas(img: HTMLImageElement, size: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = get2dContext(c);
+  ctx.imageSmoothingQuality = 'high';
+  const { sx, sy, sw, sh } = coverCropRect(img.naturalWidth, img.naturalHeight, size, size);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+  return c;
 }
 
-async function processFile(file: File): Promise<Row | null> {
-  const url = URL.createObjectURL(file);
-  const img = await loadImage(url);
-  URL.revokeObjectURL(url);
-  const keepAlpha = outFormat.value === 'png' || outFormat.value === 'webp' || outFormat.value === 'ico';
-  const canvas = drawToCanvas(img, keepAlpha);
-  if (outFormat.value === 'ico') {
-    // 正方形裁切绘制
-    const size = icoSize.value;
-    const c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
-    const ctx = c.getContext('2d')!;
-    ctx.imageSmoothingQuality = 'high';
-    const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
-    const w = img.naturalWidth * scale;
-    const h = img.naturalHeight * scale;
-    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-    const { blob } = await encodeCanvas(c);
-    return { name: file.name.replace(/\.[^.]+$/, '') + '.ico', blob, size: blob.size };
+let fallbackWarned = false;
+
+async function processFile(file: File): Promise<Row> {
+  const img = await loadImage(file);
+  const fmt = outFormat.value;
+
+  if (fmt === 'ico') {
+    const blob = await canvasToIcoBlob(drawIcoCanvas(img, icoSize.value));
+    return { name: replaceExtension(file.name, 'ico'), blob, size: blob.size };
   }
-  const { blob, ext } = await encodeCanvas(canvas);
-  return { name: file.name.replace(/\.[^.]+$/, '') + '.' + ext, blob, size: blob.size };
+
+  const canvas = drawToCanvas(img, fmt === 'png' || fmt === 'webp');
+  if (fmt === 'bmp') {
+    const blob = canvasToBmpBlob(canvas);
+    return { name: replaceExtension(file.name, 'bmp'), blob, size: blob.size };
+  }
+
+  const wanted = MIME[fmt] ?? 'image/webp';
+  const blob = await canvasToBlob(canvas, wanted, fmt === 'png' ? undefined : quality.value / 100);
+  // 浏览器不支持目标编码(如部分 Safari 的 WebP)时会静默返回 PNG
+  if (blob.type !== wanted && !fallbackWarned) {
+    fallbackWarned = true;
+    message.warning(`当前浏览器不支持编码为 ${fmt.toUpperCase()},已改为输出 ${extForMime(blob.type).toUpperCase()}`);
+  }
+  return { name: replaceExtension(file.name, extForMime(blob.type, fmt)), blob, size: blob.size };
 }
 
 async function start() {
   if (queue.value.length === 0) return;
+  const id = ++runId;
   processing.value = true;
   results.value = [];
+  fallbackWarned = false;
   try {
-    for (const f of queue.value) {
+    for (const f of [...queue.value]) {
       try {
         const row = await processFile(f);
-        if (row) results.value.push(row);
+        if (id !== runId) return;
+        results.value.push(row);
       } catch {
+        if (id !== runId) return;
         message.error(`转换失败:${f.name}`);
       }
     }
     if (results.value.length > 0) message.success('转换完成');
   } finally {
-    processing.value = false;
+    if (id === runId) processing.value = false;
   }
 }
 
 function downloadOne(row: Row) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(row.blob);
-  a.download = row.name;
-  a.click();
+  downloadBlob(row.blob, row.name);
 }
 
-async function downloadAllZip() {
-  const zip = new JSZip();
-  const folder = zip.folder('converted')!;
-  for (const row of results.value) folder.file(row.name, row.blob);
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'converted-images.zip';
-  a.click();
-  URL.revokeObjectURL(a.href);
+function downloadZip() {
+  return downloadAllZip(results.value, 'converted-images.zip', 'converted');
 }
+
+onBeforeUnmount(() => {
+  runId++;
+});
 </script>

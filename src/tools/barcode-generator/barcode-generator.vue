@@ -35,8 +35,10 @@
 </template>
 
 <script setup lang="ts">
+import { get2dContext } from '@/utils/canvas';
 import { onMounted, ref } from 'vue';
 import JsBarcode from 'jsbarcode';
+import { downloadBlob } from '../_media/file-helpers';
 
 const content = ref('6901234567892');
 const format = ref('EAN13');
@@ -69,7 +71,8 @@ function generate() {
     });
     svgWrap.value.appendChild(svg);
   } catch (e) {
-    error.value = (e as Error).message;
+    const detail = e instanceof Error ? e.message : String(e);
+    error.value = `内容不符合 ${format.value} 格式要求,请检查位数与字符(${detail})`;
   }
 }
 
@@ -82,14 +85,17 @@ function downloadPng() {
     const canvas = document.createElement('canvas');
     canvas.width = svg.getBoundingClientRect().width * 2;
     canvas.height = svg.getBoundingClientRect().height * 2;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = get2dContext(canvas);
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = 'barcode.png';
-    a.click();
+    canvas.toBlob((blob) => {
+      if (blob) downloadBlob(blob, 'barcode.png');
+      else error.value = 'PNG 导出失败';
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    error.value = 'PNG 导出失败';
   };
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
 }
@@ -98,12 +104,7 @@ function downloadSvg() {
   const svg = svgWrap.value?.querySelector('svg');
   if (!svg) return;
   const xml = new XMLSerializer().serializeToString(svg);
-  const blob = new Blob([xml], { type: 'image/svg+xml' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'barcode.svg';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  downloadBlob(new Blob([xml], { type: 'image/svg+xml' }), 'barcode.svg');
 }
 
 onMounted(generate);

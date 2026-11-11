@@ -1,12 +1,7 @@
 <template>
   <n-card>
     <!-- 上传 -->
-    <n-upload
-      accept=".mp4,.webm,.mkv,.mov,.avi,.flv,.wmv,.mpg,.mpeg,.3gp,.ts,.m4v"
-      :show-file-list="false"
-      :on-before-upload="onPick"
-      style="width: 100%"
-    >
+    <n-upload :accept="accept" :show-file-list="false" :on-before-upload="job.onPick" style="width: 100%">
       <n-upload-dragger style="padding: 26px 0">
         <n-icon size="44" :depth="3" :component="UploadIcon" />
         <n-p style="margin: 8px 0 0">点击选择或将视频文件拖到此处</n-p>
@@ -43,28 +38,24 @@
 
     <n-space justify="center" style="margin: 16px 0">
       <n-button type="primary" :loading="processing" :disabled="!file" @click="start">开始转换</n-button>
-      <n-button secondary @click="reset">清空</n-button>
+      <n-button v-if="processing" secondary type="warning" @click="job.cancel">取消</n-button>
+      <n-button secondary @click="job.reset">清空</n-button>
     </n-space>
 
-    <n-text v-if="loadingEngine" depth="3" style="font-size: 13px; display: block; text-align: center">
-      处理中...{{ loadPercent }}%(首次使用需先加载 FFmpeg 引擎)
-    </n-text>
-    <n-progress
-      v-if="processing && loadPercent > 0 && !loadingEngine"
-      type="line"
-      :percentage="loadPercent"
-      style="margin: 8px 0"
+    <media-job-status
+      :processing="processing"
+      :status="status"
+      :progress="progress"
+      :text="statusText"
+      :error="error"
     />
-    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0; white-space: pre-wrap">{{
-      error
-    }}</n-alert>
 
-    <template v-if="outputUrl">
-      <n-h3 style="margin: 16px 0 8px">转换结果({{ outputName }},{{ formatBytes(outputSize) }})</n-h3>
-      <video :src="outputUrl" controls style="width: 100%; max-height: 320px" />
+    <template v-if="output">
+      <n-h3 style="margin: 16px 0 8px">转换结果({{ output.name }},{{ formatBytes(output.size) }})</n-h3>
+      <video :src="output.url" controls style="width: 100%; max-height: 320px" />
       <n-space justify="center" style="margin-top: 12px">
-        <n-button type="primary" secondary @click="downloadOutput">下载</n-button>
-        <n-button secondary @click="outputUrl = ''">删除</n-button>
+        <n-button type="primary" secondary @click="job.download">下载</n-button>
+        <n-button secondary @click="job.clearOutput">删除</n-button>
       </n-space>
     </template>
   </n-card>
@@ -72,27 +63,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { UploadFileInfo } from 'naive-ui';
-import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
 import { formatBytes } from '@/utils/image-encode';
-import { execFFmpeg, extOf, mimeOf, ffmpegErrorMessage } from '../_media/ffmpeg-loader';
+import { extOf, mimeOf } from '../_media/ffmpeg-loader';
+import { outputFileName } from '../_media/media-utils';
+import { useFfmpegJob } from '../_media/use-ffmpeg-job';
+import MediaJobStatus from '../_media/media-job-status.vue';
 
 const UploadIcon = Upload;
-const message = useMessage();
+const EXTENSIONS = ['mp4', 'webm', 'mkv', 'mov', 'avi', 'flv', 'wmv', 'mpg', 'mpeg', '3gp', 'ts', 'm4v'];
+const accept = EXTENSIONS.map((e) => `.${e}`).join(',');
 
-const file = ref<File | null>(null);
-const fileUrl = ref('');
 const format = ref('mp4');
 const vcodec = ref('libx264');
 const preset = ref('veryfast');
-const processing = ref(false);
-const loadingEngine = ref(false);
-const loadPercent = ref(0);
-const error = ref('');
-const outputUrl = ref('');
-const outputName = ref('');
-const outputSize = ref(0);
+
+const job = useFfmpegJob({ extensions: EXTENSIONS, kind: '视频' });
+const { file, fileUrl, processing, status, statusText, progress, error, output } = job;
 
 const formatOptions = [
   { label: 'MP4', value: 'mp4' },
@@ -116,93 +103,56 @@ const presetOptions = [
   { label: '高质量(慢)', value: 'slow' },
 ];
 
-function onPick({ file: f }: { file: UploadFileInfo }) {
-  if (!f?.file) return false;
-  reset();
-  file.value = f.file as File;
-  fileUrl.value = URL.createObjectURL(file.value);
-  return false;
-}
+const VP9_SPEED: Record<string, [string, string]> = {
+  ultrafast: ['realtime', '8'],
+  veryfast: ['realtime', '6'],
+  medium: ['good', '4'],
+  slow: ['good', '2'],
+};
 
-function audioCodecFor(): string {
-  const map: Record<string, string> = {
-    webm: 'libopus',
-    mkv: 'aac',
-    mov: 'aac',
-    avi: 'aac',
-    ts: 'aac',
-    mpg: 'mp2',
-    '3gp': 'aac',
-    mp4: 'aac',
-  };
-  return map[format.value] || 'aac';
-}
+const AUDIO_CODECS: Record<string, string> = {
+  webm: 'libopus',
+  mpg: 'mp2',
+};
 
-function vcodecCompatible(ext: string): boolean {
-  // 目标容器对所选编码的兼容提示由用户判断;这里仅做基础过滤
-  if (vcodec.value === 'libvpx-vp9' && ext !== 'webm' && ext !== 'mkv' && ext !== 'mp4') {
-    return false;
+function incompatibility(ext: string, codec: string): string {
+  if (ext === 'webm' && codec !== 'libvpx-vp9') return 'WebM 仅支持 VP9 编码,请将视频编码改为 VP9';
+  if (codec === 'libvpx-vp9' && !['webm', 'mkv', 'mp4'].includes(ext)) {
+    return '所选编码与输出格式不兼容:VP9 建议输出 WebM/MKV/MP4';
   }
-  return true;
+  return '';
 }
 
-async function start() {
+function start() {
   if (!file.value) return;
-  error.value = '';
-  outputUrl.value = '';
-  if (!vcodecCompatible(format.value)) {
-    error.value = '所选编码与输出格式不兼容:VP9 建议输出 WebM/MKV/MP4';
+  const outExt = format.value;
+  const codec = vcodec.value;
+  const speed = preset.value;
+  const problem = incompatibility(outExt, codec);
+  if (problem) {
+    error.value = problem;
     return;
   }
-  const inExt = extOf(file.value.name) || 'mp4';
-  const inName = 'input.' + inExt;
-  const outExt = format.value;
-  const outName = file.value.name.replace(/\.[^.]+$/, '') + '.' + outExt;
-
-  processing.value = true;
-  loadingEngine.value = true;
-  try {
-    const data = new Uint8Array(await file.value.arrayBuffer());
-    const args = ['-i', inName];
-    args.push('-c:v', vcodec.value);
-    args.push('-preset', preset.value);
-    if (vcodec.value === 'libvpx-vp9') {
-      args.push('-b:v', '0');
-      args.push('-crf', '30');
-    } else {
-      args.push('-crf', '23');
-    }
-    args.push('-c:a', audioCodecFor());
-    args.push('-movflags', '+faststart');
-    args.push('-y', outName);
-
-    const result = await execFFmpeg(args, [{ name: inName, data }], outName, (p) => (loadPercent.value = p));
-    outputUrl.value = URL.createObjectURL(new Blob([result], { type: mimeOf(outExt) }));
-    outputName.value = outName;
-    outputSize.value = result.length;
-    message.success('转换完成');
-  } catch (e) {
-    error.value = ffmpegErrorMessage(e);
-  } finally {
-    processing.value = false;
-    loadingEngine.value = false;
-    loadPercent.value = 0;
-  }
-}
-
-function downloadOutput() {
-  const a = document.createElement('a');
-  a.href = outputUrl.value;
-  a.download = outputName.value;
-  a.click();
-}
-
-function reset() {
-  file.value = null;
-  if (fileUrl.value) URL.revokeObjectURL(fileUrl.value);
-  fileUrl.value = '';
-  if (outputUrl.value) URL.revokeObjectURL(outputUrl.value);
-  outputUrl.value = '';
-  error.value = '';
+  void job.run(
+    async (ctx, input) => {
+      const inExt = extOf(input.name) || 'mp4';
+      const inName = await ctx.write(`input.${inExt}`, new Uint8Array(await input.arrayBuffer()));
+      const outName = ctx.file(`output.${outExt}`);
+      const args = ['-i', inName, '-c:v', codec];
+      if (codec === 'libvpx-vp9') {
+        // VP9 没有 x264 式的 preset,用 deadline/cpu-used 控制速度
+        const [deadline, cpuUsed] = VP9_SPEED[speed] ?? VP9_SPEED.veryfast;
+        args.push('-b:v', '0', '-crf', '30', '-deadline', deadline, '-cpu-used', cpuUsed);
+      } else {
+        args.push('-preset', speed, '-crf', codec === 'libx265' ? '28' : '23');
+      }
+      args.push('-c:a', AUDIO_CODECS[outExt] || 'aac');
+      if (outExt === 'mp4' || outExt === 'mov') args.push('-movflags', '+faststart');
+      args.push('-y', outName);
+      await ctx.exec(args);
+      return { data: await ctx.read(outName), name: outputFileName(input.name, outExt), mime: mimeOf(outExt) };
+    },
+    { successText: '转换完成' },
+  );
 }
 </script>

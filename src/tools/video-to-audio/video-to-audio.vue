@@ -1,12 +1,7 @@
 <template>
   <n-card>
     <!-- 上传 -->
-    <n-upload
-      accept=".mp4,.webm,.mkv,.mov,.avi,.flv,.wmv,.m4v,.ts,.mpg,.mpeg,.3gp"
-      :show-file-list="false"
-      :on-before-upload="onPick"
-      style="width: 100%"
-    >
+    <n-upload :accept="accept" :show-file-list="false" :on-before-upload="job.onPick" style="width: 100%">
       <n-upload-dragger style="padding: 26px 0">
         <n-icon size="44" :depth="3" :component="UploadIcon" />
         <n-p style="margin: 8px 0 0">点击选择或将视频文件拖到此处</n-p>
@@ -24,17 +19,17 @@
     <n-grid v-if="file" cols="1 700:4" x-gap="12" y-gap="8" responsive="screen" style="margin-top: 16px">
       <n-gi>
         <n-form-item label="输出格式" label-placement="top" style="margin: 0">
-          <n-select v-model:value="format" :options="formatOptions" />
+          <n-select v-model:value="format" :options="audioFormatOptions" />
         </n-form-item>
       </n-gi>
       <n-gi>
         <n-form-item label="码率" label-placement="top" style="margin: 0">
-          <n-select v-model:value="bitrate" :options="bitrateOptions" />
+          <n-select v-model:value="bitrate" :options="audioBitrateOptions" :disabled="isLosslessAudioFormat(format)" />
         </n-form-item>
       </n-gi>
       <n-gi>
         <n-form-item label="声道" label-placement="top" style="margin: 0">
-          <n-select v-model:value="channels" :options="channelOptions" />
+          <n-select v-model:value="channels" :options="audioChannelOptions" />
         </n-form-item>
       </n-gi>
       <n-gi>
@@ -46,22 +41,24 @@
 
     <n-space justify="center" style="margin: 16px 0">
       <n-button type="primary" :loading="processing" :disabled="!file" @click="start">开始提取</n-button>
-      <n-button secondary @click="reset">清空</n-button>
+      <n-button v-if="processing" secondary type="warning" @click="job.cancel">取消</n-button>
+      <n-button secondary @click="job.reset">清空</n-button>
     </n-space>
 
-    <n-text v-if="loadingEngine" depth="3" style="font-size: 13px; display: block; text-align: center">
-      处理中...{{ loadPercent }}%(首次使用需先加载 FFmpeg 引擎)
-    </n-text>
-    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0; white-space: pre-wrap">{{
-      error
-    }}</n-alert>
+    <media-job-status
+      :processing="processing"
+      :status="status"
+      :progress="progress"
+      :text="statusText"
+      :error="error"
+    />
 
-    <template v-if="outputUrl">
-      <n-h3 style="margin: 16px 0 8px">提取结果({{ outputName }},{{ formatBytes(outputSize) }})</n-h3>
-      <audio :src="outputUrl" controls style="width: 100%" />
+    <template v-if="output">
+      <n-h3 style="margin: 16px 0 8px">提取结果({{ output.name }},{{ formatBytes(output.size) }})</n-h3>
+      <audio :src="output.url" controls style="width: 100%" />
       <n-space justify="center" style="margin-top: 12px">
-        <n-button type="primary" secondary @click="downloadOutput">下载</n-button>
-        <n-button secondary @click="outputUrl = ''">删除</n-button>
+        <n-button type="primary" secondary @click="job.download">下载</n-button>
+        <n-button secondary @click="job.clearOutput">删除</n-button>
       </n-space>
     </template>
   </n-card>
@@ -69,122 +66,60 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { UploadFileInfo } from 'naive-ui';
-import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
 import { formatBytes } from '@/utils/image-encode';
-import { execFFmpeg, extOf, mimeOf, ffmpegErrorMessage } from '../_media/ffmpeg-loader';
+import { extOf, mimeOf } from '../_media/ffmpeg-loader';
+import {
+  audioBitrateOptions,
+  audioChannelOptions,
+  audioEncodeArgs,
+  audioFormatOptions,
+  isLosslessAudioFormat,
+  outputFileName,
+  parseTimecode,
+} from '../_media/media-utils';
+import { useFfmpegJob } from '../_media/use-ffmpeg-job';
+import MediaJobStatus from '../_media/media-job-status.vue';
 
 const UploadIcon = Upload;
-const message = useMessage();
+const EXTENSIONS = ['mp4', 'webm', 'mkv', 'mov', 'avi', 'flv', 'wmv', 'm4v', 'ts', 'mpg', 'mpeg', '3gp'];
+const accept = EXTENSIONS.map((e) => `.${e}`).join(',');
 
-const file = ref<File | null>(null);
-const fileUrl = ref('');
 const format = ref('mp3');
 const bitrate = ref('192k');
 const channels = ref('2');
 const startTime = ref('');
-const processing = ref(false);
-const loadingEngine = ref(false);
-const loadPercent = ref(0);
-const error = ref('');
-const outputUrl = ref('');
-const outputName = ref('');
-const outputSize = ref(0);
 
-const formatOptions = [
-  { label: 'MP3', value: 'mp3' },
-  { label: 'WAV', value: 'wav' },
-  { label: 'M4A (AAC)', value: 'm4a' },
-  { label: 'FLAC', value: 'flac' },
-  { label: 'OGG', value: 'ogg' },
-  { label: 'AAC', value: 'aac' },
-  { label: 'Opus', value: 'opus' },
-  { label: 'WMA', value: 'wma' },
-  { label: 'AIFF', value: 'aiff' },
-];
-const bitrateOptions = ['128k', '192k', '256k', '320k'].map((b) => ({ label: b, value: b }));
-const channelOptions = [
-  { label: '立体声', value: '2' },
-  { label: '单声道', value: '1' },
-];
+const job = useFfmpegJob({
+  extensions: EXTENSIONS,
+  kind: '视频',
+  onReset: () => {
+    startTime.value = '';
+  },
+});
+const { file, fileUrl, processing, status, statusText, progress, error, output } = job;
 
-function onPick({ file: f }: { file: UploadFileInfo }) {
-  if (!f?.file) return false;
-  reset();
-  file.value = f.file as File;
-  fileUrl.value = URL.createObjectURL(file.value);
-  return false;
-}
-
-function encoderFor(fmt: string): string {
-  const map: Record<string, string> = {
-    mp3: 'libmp3lame',
-    m4a: 'aac',
-    ogg: 'libvorbis',
-    opus: 'libopus',
-    wma: 'wmav2',
-    flac: 'flac',
-    wav: 'pcm_s16le',
-    aiff: 'pcm_s16be',
-    aac: 'aac',
-  };
-  return map[fmt] || 'libmp3lame';
-}
-
-async function start() {
+function start() {
   if (!file.value) return;
-  error.value = '';
-  outputUrl.value = '';
-  const inExt = extOf(file.value.name) || 'mp4';
-  const inName = 'input.' + inExt;
-  const outName = file.value.name.replace(/\.[^.]+$/, '') + '.' + format.value;
-  const outExt = format.value;
-
-  processing.value = true;
-  loadingEngine.value = true;
-  try {
-    const data = new Uint8Array(await file.value.arrayBuffer());
-    const args = ['-i', inName];
-    if (startTime.value.trim()) {
-      const st = startTime.value.trim();
-      if (!/^(\d+):(\d{1,2}):(\d{1,2})(\.\d{1,3})?$/.test(st)) throw new Error('开始时间格式应为 HH:mm:ss.SSS');
-      args.push('-ss', st);
-    }
-    args.push('-vn', '-map', '0:a:0');
-    args.push('-c:a', encoderFor(outExt));
-    if (outExt !== 'wav' && outExt !== 'aiff' && outExt !== 'flac') args.push('-b:a', bitrate.value);
-    args.push('-ac', channels.value);
-    if (outExt === 'm4a') args.push('-movflags', '+faststart');
-    args.push('-y', outName);
-
-    const result = await execFFmpeg(args, [{ name: inName, data }], outName, (p) => (loadPercent.value = p));
-    outputUrl.value = URL.createObjectURL(new Blob([result], { type: mimeOf(outExt) }));
-    outputName.value = outName;
-    outputSize.value = result.length;
-    message.success('提取完成');
-  } catch (e) {
-    error.value = ffmpegErrorMessage(e);
-  } finally {
-    processing.value = false;
-    loadingEngine.value = false;
-    loadPercent.value = 0;
+  const startSec = parseTimecode(startTime.value);
+  if (startSec !== null && Number.isNaN(startSec)) {
+    error.value = '开始时间格式应为 HH:mm:ss.SSS';
+    return;
   }
-}
-
-function downloadOutput() {
-  const a = document.createElement('a');
-  a.href = outputUrl.value;
-  a.download = outputName.value;
-  a.click();
-}
-
-function reset() {
-  file.value = null;
-  if (fileUrl.value) URL.revokeObjectURL(fileUrl.value);
-  fileUrl.value = '';
-  if (outputUrl.value) URL.revokeObjectURL(outputUrl.value);
-  outputUrl.value = '';
-  error.value = '';
+  const outExt = format.value;
+  const opts = { bitrate: bitrate.value, channels: channels.value };
+  void job.run(
+    async (ctx, input) => {
+      const inExt = extOf(input.name) || 'mp4';
+      const inName = await ctx.write(`input.${inExt}`, new Uint8Array(await input.arrayBuffer()));
+      const outName = ctx.file(`output.${outExt}`);
+      const args = ['-i', inName];
+      if (startSec) args.push('-ss', startSec.toFixed(3));
+      args.push('-vn', ...audioEncodeArgs(outExt, opts.bitrate, opts.channels), '-y', outName);
+      await ctx.exec(args);
+      return { data: await ctx.read(outName), name: outputFileName(input.name, outExt), mime: mimeOf(outExt) };
+    },
+    { successText: '提取完成' },
+  );
 }
 </script>
