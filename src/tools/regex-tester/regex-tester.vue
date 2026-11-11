@@ -37,8 +37,12 @@
       </n-form>
     </n-card>
 
-    <n-card v-if="error" title="无效 pattern">
-      <n-alert type="error" :show-icon="false">{{ error }}</n-alert>
+    <n-card v-if="syntaxError" title="无效 pattern">
+      <n-alert type="error" :show-icon="false">{{ syntaxError }}</n-alert>
+    </n-card>
+
+    <n-card v-else-if="runError" title="匹配失败">
+      <n-alert type="warning" :show-icon="false">{{ runError }}</n-alert>
     </n-card>
 
     <n-grid v-else cols="1 800:2" x-gap="20" y-gap="20" responsive="screen">
@@ -59,7 +63,7 @@
                   padding: 6px 8px;
                 "
               >
-                <b>#{{ index + 1 }}</b> {{ m[0] }}
+                <b>#{{ index + 1 }}</b> {{ m.match }}
                 <div v-if="m.groups" style="opacity: 0.75; margin-top: 4px">
                   <div v-for="(value, key) in m.groups" :key="key">
                     <n-tag size="small" :bordered="false" type="info" style="margin-right: 6px">{{ key }}</n-tag
@@ -92,10 +96,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useValidation } from '@/composable/validation';
 import { useCopy } from '@/composable/copy';
-import { replaceWithRegex } from './regex-tester.service';
+import type { RegexMatch } from './regex-tester.service';
+import { createRegexRunner } from './regex-runner';
 
 const pattern = ref('(\\d{4})-(\\d{2})-(\\d{2})');
 const testString = ref('Today: 2023-11-15, and also 2023-11-16.');
@@ -116,33 +121,9 @@ const flags = computed(() =>
     .join(''),
 );
 
-const validation = useValidation({
-  source: pattern,
-  watch: [flags],
-  rules: [
-    {
-      message: '正则表达式无效',
-      validator: (value) => {
-        try {
-          new RegExp(value, flags.value);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-    },
-  ],
-});
-
-const compiled = computed(() => {
-  try {
-    return new RegExp(pattern.value, flags.value);
-  } catch {
-    return null;
-  }
-});
-
-const error = computed(() => {
+// Compiling is cheap and cannot hang, so syntax errors are reported synchronously.
+// Matching (which can backtrack catastrophically) runs in a Web Worker.
+const syntaxError = computed(() => {
   try {
     new RegExp(pattern.value, flags.value);
     return '';
@@ -151,34 +132,60 @@ const error = computed(() => {
   }
 });
 
-const matchList = computed(() => {
-  const regex = compiled.value;
-  if (!regex || testString.value === '') return [];
-  const results: RegExpExecArray[] = [];
-  if (!flags.value.includes('g')) {
-    const m = regex.exec(testString.value);
-    if (m) results.push(m);
-    return results;
-  }
-
-  let m: RegExpExecArray | null;
-  regex.lastIndex = 0;
-  while ((m = regex.exec(testString.value)) !== null) {
-    results.push(m);
-    if (m.index === regex.lastIndex) regex.lastIndex++;
-  }
-
-  return results;
+const validation = useValidation({
+  source: pattern,
+  watch: [flags],
+  rules: [
+    {
+      message: '正则表达式无效',
+      validator: () => syntaxError.value === '',
+    },
+  ],
 });
 
-const matchCount = computed(() => matchList.value.length);
-const matches = computed(() => matchList.value);
+const matches = ref<RegexMatch[]>([]);
+const replaced = ref('');
+const runError = ref('');
+const matchCount = computed(() => matches.value.length);
 
-const replaced = computed(() => {
-  const regex = compiled.value;
-  if (!regex || testString.value === '' || replacement.value === '') return '';
+const runner = createRegexRunner();
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-  return replaceWithRegex(testString.value, regex, replacement.value);
+async function execute() {
+  if (syntaxError.value) {
+    matches.value = [];
+    replaced.value = '';
+    runError.value = '';
+    return;
+  }
+
+  const result = await runner.run({
+    pattern: pattern.value,
+    flags: flags.value,
+    text: testString.value,
+    replacement: replacement.value,
+  });
+
+  // null: superseded by a newer run
+  if (!result) return;
+
+  matches.value = result.matches;
+  replaced.value = result.replaced;
+  runError.value = result.error;
+}
+
+watch(
+  [pattern, flags, testString, replacement],
+  () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(execute, 200);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer);
+  runner.dispose();
 });
 
 const { copy: copyReplaced } = useCopy({ source: replaced, text: '替换后的文本已复制到剪贴板' });

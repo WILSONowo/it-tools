@@ -1,10 +1,14 @@
 <template>
-  <n-card title="ASCII 码表 (0-127)">
+  <n-card :title="onlyExtended ? 'ASCII + ISO-8859-1 (Latin-1) 码表 (0-255)' : 'ASCII 码表 (0-127)'">
     <n-space align="center" style="margin-bottom: 14px">
       <n-input v-model:value="search" placeholder="按名称、字符或代码搜索..." clearable style="max-width: 300px" />
       <n-checkbox v-model:checked="onlyPrintable">仅可打印字符</n-checkbox>
-      <n-checkbox v-model:checked="onlyExtended">包含扩展字符 (128-255)</n-checkbox>
+      <n-checkbox v-model:checked="onlyExtended">包含扩展字符 (128-255,ISO-8859-1)</n-checkbox>
     </n-space>
+    <n-text v-if="onlyExtended" depth="3" style="display: block; margin-bottom: 10px; font-size: 12px">
+      128-255 按 ISO-8859-1(Latin-1)显示,与 Unicode 码位 U+0080–U+00FF 一一对应;其中 128-159 为 C1 控制字符。注意这不是
+      DOS 代码页 437(CP437)的制表符/图形字符。
+    </n-text>
 
     <n-table size="small">
       <thead>
@@ -77,138 +81,51 @@ const controlNames: Record<number, [string, string]> = {
   127: ['DEL', '删除'],
 };
 
-const extendedNames: Record<number, string> = {
-  128: 'Ç',
-  129: 'ü',
-  130: 'é',
-  131: 'â',
-  132: 'ä',
-  133: 'à',
-  134: 'å',
-  135: 'ç',
-  136: 'ê',
-  137: 'ë',
-  138: 'è',
-  139: 'ï',
-  140: 'î',
-  141: 'ì',
-  142: 'Ä',
-  143: 'Å',
-  144: 'É',
-  145: 'æ',
-  146: 'Æ',
-  147: 'ô',
-  148: 'ö',
-  149: 'ò',
-  150: 'û',
-  151: 'ù',
-  152: 'ÿ',
-  153: 'Ö',
-  154: 'Ü',
-  155: '¢',
-  156: '£',
-  157: '¥',
-  158: '₧',
-  159: 'ƒ',
-  160: 'á',
-  161: 'í',
-  162: 'ó',
-  163: 'ú',
-  164: 'ñ',
-  165: 'Ñ',
-  166: 'ª',
-  167: 'º',
-  168: '¿',
-  169: '⌐',
-  170: '¬',
-  171: '½',
-  172: '¼',
-  173: '¡',
-  174: '«',
-  175: '»',
-  176: '░',
-  177: '▒',
-  178: '▓',
-  179: '│',
-  180: '┤',
-  181: '╡',
-  182: '╢',
-  183: '╖',
-  184: '╕',
-  185: '╣',
-  186: '║',
-  187: '╗',
-  188: '╝',
-  189: '╜',
-  190: '╛',
-  191: '┐',
-  192: '└',
-  193: '┴',
-  194: '┬',
-  195: '├',
-  196: '─',
-  197: '┼',
-  198: '╞',
-  199: '╟',
-  200: '╚',
-  201: '╔',
-  202: '╩',
-  203: '╦',
-  204: '╠',
-  205: '═',
-  206: '╬',
-  207: '╧',
-  208: '╨',
-  209: '╤',
-  210: '╥',
-  211: '╙',
-  212: '╘',
-  213: '╒',
-  214: '╓',
-  215: '╫',
-  216: '╪',
-  217: '┘',
-  218: '┌',
-  219: '█',
-  220: '▄',
-  221: '▌',
-  222: '▐',
-  223: '▀',
-  224: 'α',
-  225: 'ß',
-  226: 'Γ',
-  227: 'π',
-  228: 'Σ',
-  229: 'σ',
-  230: 'µ',
-  231: 'τ',
-  232: 'Φ',
-  233: 'Θ',
-  234: 'Ω',
-  235: 'δ',
-  236: '∞',
-  237: 'φ',
-  238: 'ε',
-  239: '∩',
-  240: '≡',
-  241: '±',
-  242: '≥',
-  243: '≤',
-  244: '⌠',
-  245: '⌡',
-  246: '÷',
-  247: '≈',
-  248: '°',
-  249: '∙',
-  250: '·',
-  251: '√',
-  252: 'ⁿ',
-  253: '²',
-  254: '■',
-  255: 'nbsp',
+// 128-255 follow ISO-8859-1 (Latin-1), i.e. Unicode code points U+0080-U+00FF.
+// 128-159 are the C1 control characters; DOS code page 437 glyphs are not used.
+const c1ControlNames = [
+  'PAD',
+  'HOP',
+  'BPH',
+  'NBH',
+  'IND',
+  'NEL',
+  'SSA',
+  'ESA',
+  'HTS',
+  'HTJ',
+  'VTS',
+  'PLD',
+  'PLU',
+  'RI',
+  'SS2',
+  'SS3',
+  'DCS',
+  'PU1',
+  'PU2',
+  'STS',
+  'CCH',
+  'MW',
+  'SPA',
+  'EPA',
+  'SOS',
+  'SGC',
+  'SCI',
+  'CSI',
+  'ST',
+  'OSC',
+  'PM',
+  'APC',
+];
+
+const latin1SpecialNames: Record<number, [string, string]> = {
+  160: ['NBSP', '不换行空格'],
+  173: ['SHY', '软连字符'],
 };
 
 function htmlEntity(dec: number, printable: boolean, char: string) {
+  if (dec === 160) return '&nbsp;';
+  if (dec === 173) return '&shy;';
   if (!printable) return '';
   const named: Record<number, string> = {
     34: '&quot;',
@@ -237,9 +154,14 @@ const data = computed(() => {
   const max = onlyExtended.value ? 255 : 127;
   for (let dec = 0; dec <= max; dec++) {
     const char = String.fromCharCode(dec);
-    const printable = (dec >= 32 && dec <= 126) || (onlyExtended.value && dec >= 160 && dec <= 255);
-    const control = controlNames[dec]?.[0] ?? (onlyExtended.value ? 'ext' : '');
-    const name = dec <= 127 ? controlNames[dec]?.[1] ?? char : extendedNames[dec] ?? `Char ${dec}`;
+    const isC1 = dec >= 128 && dec <= 159;
+    const special = latin1SpecialNames[dec];
+    const printable = (dec >= 32 && dec <= 126) || (dec >= 161 && dec <= 255 && dec !== 173);
+    const control = controlNames[dec]?.[0] ?? (isC1 ? c1ControlNames[dec - 128] : special?.[0] ?? '');
+    let name: string;
+    if (dec <= 127) name = controlNames[dec]?.[1] ?? char;
+    else if (isC1) name = `C1 控制字符 (U+${dec.toString(16).toUpperCase().padStart(4, '0')})`;
+    else name = special?.[1] ?? char;
     items.push({
       dec,
       hex: dec.toString(16).toUpperCase().padStart(2, '0'),

@@ -1,19 +1,9 @@
-function ipv4ToNumber(ip: string): number {
-  const parts = ip.split('.');
-  if (parts.length !== 4) throw new Error(`无效的 IPv4: ${ip}`);
-  let result = 0;
-  for (const part of parts) {
-    if (!/^\d{1,3}$/.test(part)) throw new Error(`无效的 IPv4: ${ip}`);
-    const num = Number(part);
-    if (num > 255) throw new Error(`无效的 IPv4: ${ip}`);
-    result = (result << 8) | num;
-  }
-  return result >>> 0;
-}
+import { blockSize, formatIpv4, IPV4_MAX, parseIpv4, prefixToMask } from '@/utils/ipv4';
 
-function numberToIpv4(num: number): string {
-  const n = num >>> 0;
-  return `${(n >>> 24) & 0xff}.${(n >>> 16) & 0xff}.${(n >>> 8) & 0xff}.${n & 0xff}`;
+function ipv4ToNumber(ip: string): number {
+  const value = parseIpv4(ip, { allowLeadingZeros: true });
+  if (value === null) throw new Error(`无效的 IPv4: ${ip}`);
+  return value;
 }
 
 function log2(value: number): number {
@@ -35,15 +25,14 @@ export function parseCidr(entry: string): { start: number; prefix: number } {
     const prefix = Number(prefixRaw);
     if (!/^\d{1,2}$/.test(prefixRaw) || prefix < 0 || prefix > 32) throw new Error(`无效的 CIDR: ${entry}`);
     const start = ipv4ToNumber(ip);
-    const mask = prefix === 0 ? 0 : ((Math.pow(2, prefix) - 1) << (32 - prefix)) >>> 0;
-    return { start: (start & mask) >>> 0, prefix };
+    return { start: (start & prefixToMask(prefix)) >>> 0, prefix };
   }
   return { start: ipv4ToNumber(trimmed), prefix: 32 };
 }
 
 function networkEnd(start: number, prefix: number): number {
-  if (prefix === 0) return 0xffffffff;
-  return (start + Math.pow(2, 32 - prefix) - 1) >>> 0;
+  if (prefix === 0) return IPV4_MAX;
+  return (start + blockSize(prefix) - 1) >>> 0;
 }
 
 export function aggregateIpv4(entries: string[]): string[] {
@@ -66,7 +55,7 @@ export function aggregateIpv4(entries: string[]): string[] {
     while (current <= range.end) {
       const size = largestAlignedBlock(current, range.end);
       const prefix = 32 - log2(size);
-      result.push(`${numberToIpv4(current)}/${prefix}`);
+      result.push(`${formatIpv4(current)}/${prefix}`);
       current += size;
     }
   }

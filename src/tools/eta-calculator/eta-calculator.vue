@@ -3,7 +3,7 @@
     <n-text depth="3" style="text-align: justify; width: 100%; display: inline-block">
       举个具体例子:如果你 5 分钟能洗 3 个盘子,而你需要洗 500 个盘子,那么洗完全部盘子大约需要 5 小时 10
       分钟;如果现在开始,你将在
-      {{ endAt }}
+      {{ exampleEndAt }}
       结束。
     </n-text>
     <br />
@@ -38,12 +38,15 @@
     </n-form>
 
     <n-divider />
-    <n-space vertical style="max-width: 420px">
+    <n-alert v-if="durationMs === null" type="warning" :show-icon="false" style="max-width: 420px">
+      请填写所有数值,且均需大于 0。
+    </n-alert>
+    <n-space v-else vertical style="max-width: 420px">
       <n-card>
         <n-statistic label="总耗时">{{ formatMsDuration(durationMs) }}</n-statistic>
       </n-card>
       <n-card>
-        <n-statistic label="预计结束时间">{{ endAt }}</n-statistic>
+        <n-statistic label="预计结束时间">{{ endAt ?? '请选择开始时间' }}</n-statistic>
       </n-card>
     </n-space>
   </div>
@@ -52,26 +55,36 @@
 <script setup lang="ts">
 // Duplicate issue with sub directory
 // eslint-disable-next-line import/no-duplicates
-import { addMilliseconds, formatRelative } from 'date-fns';
+import { formatRelative } from 'date-fns';
 // eslint-disable-next-line import/no-duplicates
 import { zhCN } from 'date-fns/locale';
 import { computed, ref } from 'vue';
-import { formatMsDuration } from './eta-calculator.service';
+import { computeEtaDurationMs, computeEtaEnd, formatMsDuration } from './eta-calculator.service';
 
-const unitCount = ref(3 * 62);
-const unitPerTimeSpan = ref(3);
-const timeSpan = ref(5);
+const unitCount = ref<number | null>(3 * 62);
+const unitPerTimeSpan = ref<number | null>(3);
+const timeSpan = ref<number | null>(5);
 const timeSpanUnitMultiplier = ref(60000);
-const startedAt = ref(Date.now());
+const startedAt = ref<number | null>(Date.now());
 
-const durationMs = computed(() => {
-  const timeSpanMs = timeSpan.value * timeSpanUnitMultiplier.value;
-
-  return unitCount.value / (unitPerTimeSpan.value / timeSpanMs);
-});
-const endAt = computed(() =>
-  formatRelative(addMilliseconds(startedAt.value, durationMs.value), Date.now(), { locale: zhCN }),
+const durationMs = computed(() =>
+  computeEtaDurationMs({
+    unitCount: unitCount.value,
+    unitPerTimeSpan: unitPerTimeSpan.value,
+    timeSpan: timeSpan.value,
+    timeSpanUnitMultiplier: timeSpanUnitMultiplier.value,
+  }),
 );
+
+function formatEnd(end: number | null) {
+  return end === null ? null : formatRelative(end, Date.now(), { locale: zhCN });
+}
+
+const endAt = computed(() => {
+  if (durationMs.value === null || startedAt.value === null) return null;
+  return formatEnd(computeEtaEnd(startedAt.value, durationMs.value)) ?? '超出可表示的日期范围';
+});
+const exampleEndAt = computed(() => endAt.value ?? '……');
 </script>
 
 <style lang="less" scoped>

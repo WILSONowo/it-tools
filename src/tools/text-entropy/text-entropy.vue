@@ -81,7 +81,8 @@ const normalizedText = computed(() => {
   return value;
 });
 
-const totalChars = computed(() => normalizedText.value.length);
+// Count code points, not UTF-16 units, so that emoji and other astral characters count once.
+const totalChars = computed(() => [...normalizedText.value].length);
 
 const frequencies = computed(() => {
   const counts = new Map<string, number>();

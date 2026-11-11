@@ -97,17 +97,38 @@ export function diffArrays<T>(oldItems: T[], newItems: T[]): DiffChange<T>[] {
 
 export type DiffSegment = { type: 'equal' | 'add' | 'remove'; value: string };
 
+/** Above this many DP cells (length product after trimming the common prefix/suffix), lines are shown as a whole-line change. */
+export const MAX_CHAR_DIFF_CELLS = 1e6;
+
 export function diffCharsInline(oldText: string, newText: string): DiffSegment[] {
-  const maxLen = 4000;
-  if (oldText.length > maxLen || newText.length > maxLen) {
+  // Strip the common prefix and suffix: cheap, and usually leaves a small middle to diff.
+  let prefix = 0;
+  const minLength = Math.min(oldText.length, newText.length);
+  while (prefix < minLength && oldText[prefix] === newText[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < minLength - prefix && oldText[oldText.length - 1 - suffix] === newText[newText.length - 1 - suffix]) {
+    suffix++;
+  }
+
+  const head: DiffSegment[] = prefix ? [{ type: 'equal', value: oldText.slice(0, prefix) }] : [];
+  const tail: DiffSegment[] = suffix ? [{ type: 'equal', value: oldText.slice(oldText.length - suffix) }] : [];
+  const oldMiddle = oldText.slice(prefix, oldText.length - suffix);
+  const newMiddle = newText.slice(prefix, newText.length - suffix);
+
+  if (oldMiddle.length * newMiddle.length > MAX_CHAR_DIFF_CELLS) {
     const segs: DiffSegment[] = [];
     if (oldText) segs.push({ type: 'remove', value: oldText });
     if (newText) segs.push({ type: 'add', value: newText });
     return segs;
   }
 
+  return [...head, ...diffCharsLcs(oldMiddle, newMiddle), ...tail];
+}
+
+function diffCharsLcs(oldText: string, newText: string): DiffSegment[] {
   const n = oldText.length;
   const m = newText.length;
+  if (n === 0 && m === 0) return [];
   const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {

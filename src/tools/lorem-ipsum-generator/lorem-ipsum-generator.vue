@@ -50,13 +50,16 @@ const asHTML = ref(false);
 
 const tick = ref(0);
 
+// randIntFromInterval is inclusive, so the slider maximums are reachable; sort in case the handles crossed.
+const randInRange = ([a, b]: number[]) => randIntFromInterval(Math.min(a, b), Math.max(a, b));
+
 const loremIpsumText = computed(() => {
   void tick.value;
   return generateLoremIpsum({
     paragraphCount: paragraphs.value,
     asHTML: asHTML.value,
-    sentencePerParagraph: randIntFromInterval(sentences.value[0], sentences.value[1]),
-    wordCount: randIntFromInterval(words.value[0], words.value[1]),
+    sentencePerParagraph: randInRange(sentences.value),
+    wordCount: randInRange(words.value),
     startWithLoremIpsum: startWithLoremIpsum.value,
   });
 });

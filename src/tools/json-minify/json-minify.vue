@@ -13,6 +13,10 @@
       </n-form-item>
     </n-form>
 
+    <n-alert v-if="lossyWarning" type="warning" :show-icon="false" style="margin-top: 8px">
+      {{ lossyWarning }}
+    </n-alert>
+
     <n-space justify="center" style="margin: 12px 0 16px">
       <n-button secondary type="primary" @click="minify">压缩</n-button>
       <n-button secondary :disabled="!output" @click="copy">复制结果</n-button>
@@ -37,6 +41,7 @@
 import { computed, ref } from 'vue';
 import { useCopy } from '@/composable/copy';
 import JSON5 from 'json5';
+import { getLossyJsonWarning } from '../json-viewer/json.models';
 
 const input = ref('{\n\t"hello": [\n\t\t"world"\n\t]\n}');
 const output = ref('');
@@ -48,6 +53,8 @@ const parsed = computed(() => {
     return { ok: false as const, error: (e as Error).message };
   }
 });
+
+const lossyWarning = computed(() => getLossyJsonWarning(input.value));
 
 const status = computed(() => (parsed.value.ok ? undefined : 'error'));
 const feedback = computed(() => (parsed.value.ok ? '' : parsed.value.error));

@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { gcd, gcdLcm, parseNumbers } from './math-calculators.service';
 
 // percentages
 const pValue = ref(200);
@@ -146,13 +147,6 @@ function valueOfPercent() {
 // stats
 const numbersInput = ref('1, 2, 3, 4, 5');
 const statsResult = ref('');
-
-function parseNumbers(text: string): number[] {
-  return text
-    .split(/[,\s;]+/)
-    .map((s) => Number(s.trim()))
-    .filter((n) => !Number.isNaN(n));
-}
 
 function computeStats() {
   const nums = parseNumbers(numbersInput.value);
@@ -178,19 +172,18 @@ function computeStats() {
 const gcdInput = ref('12, 18, 24');
 const gcdResult = ref('');
 
-function gcd(a: number, b: number): number {
-  return b === 0 ? Math.abs(a) : gcd(b, a % b);
-}
-
 function computeGcdLcm() {
-  const nums = parseNumbers(gcdInput.value).filter((n) => Number.isInteger(n));
-  if (nums.length === 0) {
-    gcdResult.value = '';
+  const all = parseNumbers(gcdInput.value);
+  const nums = all.filter((n) => Number.isInteger(n));
+  const result = gcdLcm(nums);
+  if (!result) {
+    gcdResult.value = all.length ? '请输入整数' : '';
     return;
   }
-  const gcdValue = nums.reduce((a, b) => gcd(a, b));
-  const lcmValue = nums.reduce((a, b) => Math.abs(a * b) / gcd(a, b));
-  gcdResult.value = `最大公约数 (GCD): ${gcdValue}\n最小公倍数 (LCM): ${lcmValue}`;
+  const notes: string[] = [];
+  if (nums.length < all.length) notes.push(`已忽略 ${all.length - nums.length} 个非整数`);
+  if (!Number.isSafeInteger(result.lcm)) notes.push('结果超出安全整数范围,可能不精确');
+  gcdResult.value = [`最大公约数 (GCD): ${result.gcd}`, `最小公倍数 (LCM): ${result.lcm}`, ...notes].join('\n');
 }
 
 // fractions

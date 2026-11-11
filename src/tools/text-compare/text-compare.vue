@@ -67,10 +67,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { diffArrays, diffCharsInline } from './text-diff.service';
 const original = ref('The quick brown fox\njumps over the lazy dog.');
 const modified = ref('The quick brown fox\njumped over the lazy cat.');
+// Diff a debounced copy of the inputs so typing stays responsive on large texts.
+const debouncedOriginal = ref(original.value);
+const debouncedModified = ref(modified.value);
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+watch([original, modified], () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debouncedOriginal.value = original.value;
+    debouncedModified.value = modified.value;
+  }, 250);
+});
+onBeforeUnmount(() => clearTimeout(debounceTimer));
 const showLineNumbers = ref(true);
 const ignoreWhitespace = ref(false);
 const charDiff = ref(true);
@@ -89,8 +101,8 @@ const toLines = (value: string) =>
   value.split(/\r?\n/).map((line) => (ignoreWhitespace.value ? line.replace(/\s+/g, ' ').trim() : line));
 
 const rendered = computed<Row[]>(() => {
-  const oldLines = toLines(original.value);
-  const newLines = toLines(modified.value);
+  const oldLines = toLines(debouncedOriginal.value);
+  const newLines = toLines(debouncedModified.value);
   const changes = diffArrays(oldLines, newLines);
 
   const rows: Row[] = [];

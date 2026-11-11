@@ -63,11 +63,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { useCopy } from '@/composable/copy';
 import { format } from 'date-fns';
-import { randIntFromInterval } from '@/utils/random';
+import { randIntFromInterval, randomDecimal, randomUuid } from '@/utils/random';
 import { createToken } from '../token-generator/token-generator.service';
+import { randomIpv4 } from '../random-ip-generator/random-ip-generator.service';
 
 const kind = ref('integer');
 const min = ref(0);
@@ -89,6 +90,7 @@ const kindOptions = [
   { label: 'IPv4', value: 'ipv4' },
   { label: 'UUID', value: 'uuid' },
   { label: '颜色（HEX）', value: 'color' },
+  { label: '姓名（英文）', value: 'name' },
 ];
 
 const firstNames = [
@@ -149,13 +151,6 @@ function randomEmail(): string {
   return `${local}@${domain}`;
 }
 
-function randomIpv4(): string {
-  return `${randIntFromInterval(1, 254)}.${randIntFromInterval(0, 255)}.${randIntFromInterval(
-    0,
-    255,
-  )}.${randIntFromInterval(1, 254)}`;
-}
-
 function randomHexColor(): string {
   let value = '';
   for (let i = 0; i < 6; i++) value += '0123456789abcdef'[randIntFromInterval(0, 15)];
@@ -163,23 +158,12 @@ function randomHexColor(): string {
   return `#${value}`;
 }
 
-function randomUuid(): string {
-  let value = '';
-  const chars = '0123456789abcdef';
-  for (let i = 0; i < 32; i++) {
-    value += chars[randIntFromInterval(0, 15)];
-    if ([8, 12, 16, 20].includes(i)) value += '-';
-  }
-
-  return value;
-}
-
 function generateOne(): string {
   switch (kind.value) {
     case 'integer':
       return String(randIntFromInterval(min.value, max.value));
     case 'float':
-      return (Math.random() * (max.value - min.value) + min.value).toFixed(2);
+      return randomDecimal(min.value, max.value, 2).toFixed(2);
     case 'hex':
       return createToken({
         length: length.value,

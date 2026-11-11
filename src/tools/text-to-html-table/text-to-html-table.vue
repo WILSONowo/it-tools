@@ -52,6 +52,7 @@
       />
     </n-form-item>
     <n-divider>预览</n-divider>
+    <!-- eslint-disable-next-line vue/no-v-html -- every cell is HTML-escaped when the table is built -->
     <div style="overflow: auto" v-html="output" />
   </n-card>
 </template>
@@ -103,15 +104,13 @@ function convert() {
   const headRow = firstRowHeader.value ? split(rows[0]) : null;
   const cols = Math.max(headRow?.length ?? 0, ...dataRows.map((r) => split(r).length));
 
-  const cls =
-    bordered.value === 'default'
-      ? ' style="border-collapse:collapse"'
-      : ` class="table table-${bordered.value}" style="border-collapse:collapse"`;
-  const alignAttr = align.value === 'left' ? '' : ` style="text-align:${align.value}"`;
+  const cls = bordered.value === 'default' ? '' : ` class="table table-${bordered.value}"`;
+  // A single style attribute: browsers ignore a duplicated one, which used to drop the alignment.
+  const styles = ['border-collapse:collapse', ...(align.value === 'left' ? [] : [`text-align:${align.value}`])];
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  let html = `<table${cls}${alignAttr}>\n`;
+  let html = `<table${cls} style="${styles.join(';')}">\n`;
   if (headRow) {
     html += '  <thead>\n    <tr>\n';
     for (let i = 0; i < cols; i++) html += `      <th>${escapeHtml(headRow[i] ?? '')}</th>\n`;

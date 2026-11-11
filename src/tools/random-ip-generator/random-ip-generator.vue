@@ -43,10 +43,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useCopy } from '@/composable/copy';
+import { type MacFormat, randomIpv4, randomIpv6, randomMac } from './random-ip-generator.service';
 
 const kind = ref('ipv4');
 const count = ref(10);
-const macFormat = ref<'aa:bb:cc:dd:ee:ff' | 'aabb.ccdd.eeff'>('aa:bb:cc:dd:ee:ff');
+const macFormat = ref<MacFormat>('aa:bb:cc:dd:ee:ff');
 const macCase = ref<'upper' | 'lower'>('lower');
 
 const kindOptions = [
@@ -58,34 +59,16 @@ const kindOptions = [
 const output = ref('');
 function generate() {
   const lines: string[] = [];
-  for (let i = 0; i < count.value; i++) {
+  for (let i = 0; i < (count.value ?? 0); i++) {
     if (kind.value === 'ipv4') {
-      lines.push(`${randInt(1, 254)}.${randInt(0, 255)}.${randInt(0, 255)}.${randInt(1, 254)}`);
+      lines.push(randomIpv4());
     } else if (kind.value === 'ipv6') {
-      lines.push(generateIpv6());
+      lines.push(randomIpv6());
     } else {
-      lines.push(generateMac());
+      lines.push(randomMac({ format: macFormat.value, uppercase: macCase.value === 'upper' }));
     }
   }
   output.value = lines.join('\n');
-}
-
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function generateIpv6(): string {
-  const groups = Array.from({ length: 8 }, () => randInt(0, 0xffff).toString(16));
-  return groups.join(':');
-}
-
-function generateMac(): string {
-  const bytes = Array.from({ length: 6 }, () => randInt(0, 255).toString(16).padStart(2, '0'));
-  const transformed = macCase.value === 'upper' ? bytes.map((b) => b.toUpperCase()) : bytes;
-  if (macFormat.value === 'aa:bb:cc:dd:ee:ff') {
-    return transformed.join(':');
-  }
-  return `${transformed.slice(0, 3).join('')}.${transformed.slice(3, 6).join('')}`;
 }
 
 generate();

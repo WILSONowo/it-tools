@@ -38,6 +38,10 @@
         />
       </n-form-item>
 
+      <n-alert v-if="lossyWarning" type="warning" :show-icon="false" style="margin-top: 8px">
+        {{ lossyWarning }}
+      </n-alert>
+
       <n-space justify="center" style="margin: 12px 0 16px">
         <n-button secondary :disabled="!rawJson" @click="clearJson">清空</n-button>
       </n-space>
@@ -61,7 +65,7 @@ import { withDefaultOnError } from '@/utils/defaults';
 import { computed, ref } from 'vue';
 import JSON5 from 'json5';
 import { useStorage } from '@vueuse/core';
-import { formatJson } from './json.models';
+import { formatJson, getLossyJsonWarning } from './json.models';
 
 const inputElement = ref<HTMLElement>();
 
@@ -70,11 +74,18 @@ const indentSize = useStorage('json-prettify:indent-size', 3);
 const sortKeys = useStorage('json-prettify:sort-keys', true);
 const cleanJson = computed(() => withDefaultOnError(() => formatJson({ rawJson, indentSize, sortKeys }), ''));
 
+const lossyWarning = computed(() => getLossyJsonWarning(rawJson.value));
+
 const rawJsonValidation = useValidation({
   source: rawJson,
   rules: [
     {
-      validator: (v) => v === '' || JSON5.parse(v),
+      // Do not return the parsed value: valid documents such as `0`, `false` or `null` are falsy.
+      validator: (v) => {
+        if (v.trim() === '') return true;
+        JSON5.parse(v);
+        return true;
+      },
       message: '提供的 JSON 无效。',
     },
   ],

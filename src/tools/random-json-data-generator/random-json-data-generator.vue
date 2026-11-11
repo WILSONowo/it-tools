@@ -17,7 +17,7 @@
             <n-input-number v-model:value="arrayLength" :min="1" :max="200" style="width: 100%" />
           </n-form-item>
 
-          <n-form-item label="最大嵌套深度" style="margin-top: 16px">
+          <n-form-item label="最大嵌套深度(1 = 不嵌套)" style="margin-top: 16px">
             <n-input-number v-model:value="depth" :min="1" :max="4" style="width: 100%" />
           </n-form-item>
 
@@ -54,15 +54,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useCopy } from '@/composable/copy';
-import { random, randIntFromInterval } from '@/utils/random';
+import { generateRandomJson } from './random-json-data-generator.service';
 
 const rootType = ref<'object' | 'array'>('object');
-const fieldCount = ref(5);
-const arrayLength = ref(5);
-const depth = ref(2);
+const fieldCount = ref<number | null>(5);
+const arrayLength = ref<number | null>(5);
+const depth = ref<number | null>(2);
 const fieldType = ref<string[]>(['string', 'number', 'boolean']);
 const minified = ref(false);
-const output = ref('');
+const data = ref<unknown>(null);
+const output = computed(() => (data.value === null ? '' : JSON.stringify(data.value, null, minified.value ? 0 : 2)));
 
 const typeOptions = [
   { label: '对象', value: 'object' },
@@ -79,67 +80,14 @@ const fieldOptions = [
   { label: 'Null', value: 'null' },
 ];
 
-function randomString(): string {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-  const length = randIntFromInterval(4, 12);
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += alphabet[randIntFromInterval(0, alphabet.length - 1)];
-  }
-
-  return result;
-}
-
-function randomValue(type: string, currentDepth: number): unknown {
-  if (currentDepth <= 0 || type === 'string') return randomString();
-  if (type === 'number') return randIntFromInterval(-9999, 99999);
-  if (type === 'boolean') return random() > 0.5;
-  if (type === 'date') return new Date(randIntFromInterval(0, Date.now())).toISOString();
-  if (type === 'email') return `${randomString()}@${randomString()}.com`;
-  if (type === 'uuid') {
-    const chars = '0123456789abcdef';
-    let uuid = '';
-    for (let i = 0; i < 32; i++) {
-      uuid += chars[randIntFromInterval(0, 15)];
-      if ([8, 12, 16, 20].includes(i)) uuid += '-';
-    }
-
-    return uuid;
-  }
-  if (type === 'null') return null;
-  if (type === 'array') {
-    const length = randIntFromInterval(1, 3);
-    return Array.from({ length }, () =>
-      randomValue(fieldType.value[randIntFromInterval(0, fieldType.value.length - 1)], currentDepth - 1),
-    );
-  }
-  if (random() > 0.3) return randomString();
-
-  return null;
-}
-
-function randomObject(currentDepth: number): Record<string, unknown> {
-  const obj: Record<string, unknown> = {};
-  const count = currentDepth >= depth.value ? Math.min(fieldCount.value, 3) : fieldCount.value;
-  for (let i = 0; i < count; i++) {
-    const type = fieldType.value[randIntFromInterval(0, fieldType.value.length - 1)];
-    obj[`field${i + 1}_${randomString().slice(0, 3)}`] = randomValue(type, currentDepth);
-  }
-
-  return obj;
-}
-
 function generate() {
-  const types = fieldType.value.length > 0 ? fieldType.value : ['string'];
-  if (rootType.value === 'array') {
-    output.value = JSON.stringify(
-      Array.from({ length: arrayLength.value }, () => randomObject(depth.value)),
-      null,
-      minified.value ? 0 : 2,
-    );
-  } else {
-    output.value = JSON.stringify(randomObject(depth.value), null, minified.value ? 0 : 2);
-  }
+  data.value = generateRandomJson({
+    rootType: rootType.value,
+    fieldCount: fieldCount.value ?? 5,
+    arrayLength: arrayLength.value ?? 5,
+    depth: depth.value ?? 1,
+    fieldTypes: fieldType.value,
+  });
 }
 
 generate();

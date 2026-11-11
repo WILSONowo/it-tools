@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffArrays, type DiffChange } from './text-diff.service';
+import { diffArrays, diffCharsInline, type DiffChange } from './text-diff.service';
 
 function apply<T>(changes: DiffChange<T>[]) {
   const oldSide = changes.filter((c) => !c.added).flatMap((c) => c.value);
@@ -45,5 +45,47 @@ describe('diffArrays', () => {
       expect(oldSide).toEqual(oldItems);
       expect(newSide).toEqual(newItems);
     }
+  });
+});
+
+describe('diffCharsInline', () => {
+  const rebuild = (segments: { type: string; value: string }[], side: 'old' | 'new') =>
+    segments
+      .filter((s) => s.type === 'equal' || s.type === (side === 'old' ? 'remove' : 'add'))
+      .map((s) => s.value)
+      .join('');
+
+  it('diffs characters and keeps the common prefix and suffix', () => {
+    const segments = diffCharsInline('jumps over the lazy dog.', 'jumped over the lazy cat.');
+    expect(segments[0]).toEqual({ type: 'equal', value: 'jump' });
+    expect(segments[segments.length - 1]).toEqual({ type: 'equal', value: '.' });
+    expect(rebuild(segments, 'old')).toBe('jumps over the lazy dog.');
+    expect(rebuild(segments, 'new')).toBe('jumped over the lazy cat.');
+  });
+
+  it('handles identical, empty and one-sided input', () => {
+    expect(diffCharsInline('abc', 'abc')).toEqual([{ type: 'equal', value: 'abc' }]);
+    expect(diffCharsInline('', '')).toEqual([]);
+    expect(diffCharsInline('', 'x')).toEqual([{ type: 'add', value: 'x' }]);
+    expect(diffCharsInline('ab', 'aXb')).toEqual([
+      { type: 'equal', value: 'a' },
+      { type: 'add', value: 'X' },
+      { type: 'equal', value: 'b' },
+    ]);
+  });
+
+  it('falls back to a whole-line change for very long, very different lines', () => {
+    const oldLine = 'a'.repeat(2000);
+    const newLine = 'b'.repeat(2000);
+    expect(diffCharsInline(oldLine, newLine)).toEqual([
+      { type: 'remove', value: oldLine },
+      { type: 'add', value: newLine },
+    ]);
+  });
+
+  it('still diffs long lines that differ in a small region', () => {
+    const oldLine = `${'a'.repeat(5000)}X${'b'.repeat(5000)}`;
+    const newLine = `${'a'.repeat(5000)}Y${'b'.repeat(5000)}`;
+    expect(diffCharsInline(oldLine, newLine)).toHaveLength(4);
   });
 });

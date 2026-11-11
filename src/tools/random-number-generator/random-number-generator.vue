@@ -39,7 +39,8 @@
 
       <n-form-item label="结果分隔符">
         <n-radio-group v-model:value="separator">
-          <n-radio-button value="\n">换行</n-radio-button>
+          <!-- A static value="\n" would be a literal backslash + n, not a newline -->
+          <n-radio-button :value="'\n'">换行</n-radio-button>
           <n-radio-button value=",">,</n-radio-button>
           <n-radio-button value=" ">空格</n-radio-button>
           <n-radio-button value="custom">自定义</n-radio-button>
@@ -73,15 +74,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useClipboard } from '@vueuse/core';
+import { ref } from 'vue';
+import { useCopy } from '@/composable/copy';
 import { useMessage } from 'naive-ui';
+import { generateRandomNumbers } from './random-number-generator.service';
 
 const numType = ref<'int' | 'float'>('int');
-const decimals = ref(4);
-const min = ref(1);
-const max = ref(100);
-const count = ref(10);
+const decimals = ref<number | null>(4);
+const min = ref<number | null>(1);
+const max = ref<number | null>(100);
+const count = ref<number | null>(10);
 const unique = ref(true);
 const sort = ref('none');
 const separator = ref<string>('\n');
@@ -96,45 +98,30 @@ const sortOptions = [
 
 const message = useMessage();
 
-function randomBetween(minVal: number, maxVal: number): number {
-  return Math.random() * (maxVal - minVal) + minVal;
-}
-
-function formatValue(v: number): string {
-  if (numType.value === 'int') return String(Math.floor(v));
-  return v.toFixed(decimals.value);
-}
-
 function generate() {
-  if (min.value >= max.value) {
-    message.warning('最小值必须小于最大值');
+  const result = generateRandomNumbers({
+    type: numType.value,
+    decimals: decimals.value ?? 0,
+    min: min.value as number,
+    max: max.value as number,
+    count: count.value as number,
+    unique: unique.value,
+  });
+  if (!result.ok) {
+    message.warning(result.error);
     return;
   }
-  const seen = new Set<string>();
-  const list: string[] = [];
-  let guard = 0;
-  const cap = unique.value
-    ? Math.max(count.value * 50 + 500, Math.min(count.value, Math.floor(max.value - min.value) + 1) + 10)
-    : count.value * 10 + 10;
-  while (list.length < count.value && guard < cap) {
-    guard++;
-    const v = randomBetween(min.value, max.value);
-    const key = formatValue(v);
-    if (unique.value && seen.has(key)) continue;
-    seen.add(key);
-    list.push(key);
-  }
+  const list = result.values;
   if (sort.value === 'asc') list.sort((a, b) => Number(a) - Number(b));
   if (sort.value === 'desc') list.sort((a, b) => Number(b) - Number(a));
   const sep = separator.value === 'custom' ? customSeparator.value : separator.value;
   output.value = list.join(sep);
 }
 
-const { copy: copyText } = useClipboard({ source: output });
+const { copy: copyText } = useCopy({ source: output, text: '已复制到剪贴板' });
 function copy() {
   if (!output.value) return;
   copyText();
-  message.success('已复制到剪贴板');
 }
 
 function download() {

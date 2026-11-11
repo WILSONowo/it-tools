@@ -20,15 +20,20 @@
       </n-table>
 
       <n-space style="margin-top: 14px" justify="space-between">
-        <n-button tertiary @click="switchToBlock({ count: -1 })">
+        <n-button tertiary :disabled="!canSwitch(-1)" @click="switchToBlock({ count: -1 })">
           <n-icon :component="ArrowLeft" />
           上一个子网
         </n-button>
-        <n-button tertiary @click="switchToBlock({ count: 1 })">
+        <n-button tertiary :disabled="!canSwitch(1)" @click="switchToBlock({ count: 1 })">
           下一个子网
           <n-icon :component="ArrowRight" />
         </n-button>
       </n-space>
+      <n-text v-if="!canSwitch(-1) || !canSwitch(1)" depth="3" style="display: block; margin-top: 8px; font-size: 12px">
+        已到达 IPv4 地址空间的{{
+          !canSwitch(-1) && !canSwitch(1) ? '两端' : !canSwitch(-1) ? '起始' : '末尾'
+        }},没有更多子网
+      </n-text>
     </div>
   </div>
 </template>
@@ -41,7 +46,8 @@ import { useValidation } from '@/composable/validation';
 import { isNotThrowing } from '@/utils/boolean';
 import { useStorage } from '@vueuse/core';
 import { ArrowLeft, ArrowRight } from '@vicons/tabler';
-import { getIPClass } from './ipv4-subnet-calculator.models';
+import { formatIpv4, parseIpv4 } from '@/utils/ipv4';
+import { getAdjacentBlockBase, getIPClass } from './ipv4-subnet-calculator.models';
 import CopyableIpLike from './copyable-ip-like.vue';
 
 const ip = useStorage('ipv4-subnet-calculator:ip', '192.168.0.1/24');
@@ -66,7 +72,7 @@ const sections: {
   undefinedFallback?: string;
 }[] = [
   {
-    label: '子网掩码',
+    label: '网络块',
     getValue: (block) => block.toString(),
   },
   {
@@ -74,7 +80,7 @@ const sections: {
     getValue: ({ base }) => base,
   },
   {
-    label: '掩码',
+    label: '子网掩码',
     getValue: ({ mask }) => mask,
   },
   {
@@ -113,11 +119,26 @@ const sections: {
   },
 ];
 
+function getAdjacentBlock(count: number) {
+  const info = networkInfo.value;
+  if (!info) return null;
+
+  const current = parseIpv4(info.base);
+  if (current === null) return null;
+
+  const base = getAdjacentBlockBase({ base: current, size: info.size, count });
+  return base === null ? null : `${formatIpv4(base)}/${info.bitmask}`;
+}
+
+function canSwitch(count: number) {
+  return getAdjacentBlock(count) !== null;
+}
+
 function switchToBlock({ count = 1 }: { count?: number }) {
-  const next = networkInfo.value?.next(count);
+  const next = getAdjacentBlock(count);
 
   if (next) {
-    ip.value = next.toString();
+    ip.value = next;
   }
 }
 </script>

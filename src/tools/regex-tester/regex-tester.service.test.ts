@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replaceWithRegex, toNativeReplacement } from './regex-tester.service';
+import { replaceWithRegex, runRegex, toNativeReplacement } from './regex-tester.service';
 
 const date = /(\d{4})-(\d{2})-(\d{2})/;
 const text = 'Today: 2023-11-15, and also 2023-11-16.';
@@ -45,5 +45,31 @@ describe('replaceWithRegex', () => {
     const regex = /\d/g;
     regex.lastIndex = 3;
     expect(replaceWithRegex('a1b2', regex, 'x')).toBe('axbx');
+  });
+});
+
+describe('runRegex', () => {
+  it('returns matches, named groups and the replacement', () => {
+    const result = runRegex({ pattern: '(?<y>\\d{4})', flags: 'g', text: 'a 2023 b 2024', replacement: '[$<y>]' });
+    expect(result.error).toBe('');
+    expect(result.matches.map((m) => [m.match, m.index, m.groups?.y])).toEqual([
+      ['2023', 2, '2023'],
+      ['2024', 9, '2024'],
+    ]);
+    expect(result.replaced).toBe('a [2023] b [2024]');
+  });
+
+  it('returns only the first match without the g flag', () => {
+    expect(runRegex({ pattern: 'a', flags: '', text: 'aaa', replacement: '' }).matches).toHaveLength(1);
+  });
+
+  it('terminates on zero-length matches', () => {
+    expect(runRegex({ pattern: '', flags: 'g', text: 'abc', replacement: '' }).matches).toHaveLength(4);
+  });
+
+  it('reports syntax errors', () => {
+    const result = runRegex({ pattern: '(', flags: 'g', text: 'abc', replacement: '' });
+    expect(result.error).not.toBe('');
+    expect(result.matches).toEqual([]);
   });
 });
