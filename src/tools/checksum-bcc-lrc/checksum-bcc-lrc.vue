@@ -15,7 +15,7 @@
     <n-space justify="center" style="margin: 16px 0 0">
       <n-button type="primary" @click="refresh">计算</n-button>
       <n-button secondary @click="hexInput = ''">清空</n-button>
-      <n-checkbox v-model:value="littleEndian" style="margin-left: 8px">小端(LSB first)</n-checkbox>
+      <n-checkbox v-model:checked="littleEndian" style="margin-left: 8px">小端(LSB first)</n-checkbox>
     </n-space>
     <n-text depth="2" style="display: block; margin: 16px 0 8px">校验结果</n-text>
     <n-table size="small">

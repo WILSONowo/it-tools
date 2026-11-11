@@ -29,26 +29,32 @@
 
 <script setup lang="ts">
 import { useQueryParam } from '@/composable/queryParams';
-import { enc, lib, MD5, RIPEMD160, SHA1, SHA224, SHA256, SHA3, SHA384, SHA512 } from 'crypto-js';
-import { createSM3 } from 'hash-wasm';
+import { enc, lib, MD5, RIPEMD160, SHA1, SHA224, SHA256, SHA384, SHA512 } from 'crypto-js';
+import { createSHA3, createSM3 } from 'hash-wasm';
 import { ref, watch } from 'vue';
 import InputCopyable from '../../components/InputCopyable.vue';
 import { convertHexToBin } from './hash-text.service';
 
-const algos = {
+// crypto-js's SHA3 is the pre-standard Keccak, not FIPS 202 SHA3; use hash-wasm for SHA3 and SM3.
+const syncAlgos = {
   MD5,
   SHA1,
   SHA256,
   SHA224,
   SHA512,
   SHA384,
-  SHA3,
   RIPEMD160,
 } as const;
 
-type AlgoNames = keyof typeof algos;
+const asyncAlgos = {
+  'SHA3-512': () => createSHA3(512),
+  SM3: () => createSM3(),
+} as const;
+
+type SyncAlgoName = keyof typeof syncAlgos;
+type AsyncAlgoName = keyof typeof asyncAlgos;
 type Encoding = 'Hex' | 'Base64' | 'Base64url' | 'Bin';
-const algoNames = [...Object.keys(algos), 'SM3'] as const;
+const algoNames = ['MD5', 'SHA1', 'SHA256', 'SHA224', 'SHA512', 'SHA384', 'SHA3-512', 'RIPEMD160', 'SM3'] as const;
 const encoding = useQueryParam<Encoding>({ defaultValue: 'Hex', name: 'encoding' });
 const clearText = ref('');
 
@@ -63,46 +69,36 @@ const hashResults = ref<Record<string, string>>({});
 
 function computeSync() {
   const out: Record<string, string> = {};
-  for (const algo of Object.keys(algos) as AlgoNames[]) {
-    out[algo] = formatWithEncoding(algos[algo](clearText.value), encoding.value);
+  for (const algo of Object.keys(syncAlgos) as SyncAlgoName[]) {
+    out[algo] = formatWithEncoding(syncAlgos[algo](clearText.value), encoding.value);
   }
-  hashResults.value = out;
+  hashResults.value = { ...hashResults.value, ...out };
 }
 
-let sm3Timer: ReturnType<typeof setTimeout> | null = null;
-async function computeSm3() {
-  if (clearText.value === '') {
-    hashResults.value = { ...hashResults.value, SM3: '' };
-    return;
+// Each run gets an id so a slow, outdated run cannot overwrite newer results.
+let asyncRunId = 0;
+async function computeAsync() {
+  const runId = ++asyncRunId;
+  const text = clearText.value;
+  const currentEncoding = encoding.value;
+  const out: Record<string, string> = {};
+  for (const algo of Object.keys(asyncAlgos) as AsyncAlgoName[]) {
+    const hasher = await asyncAlgos[algo]();
+    hasher.init();
+    hasher.update(new TextEncoder().encode(text));
+    out[algo] = formatWithEncoding(enc.Hex.parse(hasher.digest('hex')), currentEncoding);
   }
-  const hasher = await createSM3();
-  hasher.init();
-  hasher.update(new TextEncoder().encode(clearText.value));
-  const hex = hasher.digest('hex');
-  let out: string = hex;
-  if (encoding.value === 'Base64') {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    out = btoa(bin);
-  } else if (encoding.value === 'Base64url') {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    out = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  } else if (encoding.value === 'Bin') {
-    out = convertHexToBin(hex);
+  if (runId === asyncRunId) {
+    hashResults.value = { ...hashResults.value, ...out };
   }
-  hashResults.value = { ...hashResults.value, SM3: out };
 }
 
+let asyncTimer: ReturnType<typeof setTimeout> | null = null;
 watch([clearText, encoding], () => {
   computeSync();
-  if (sm3Timer) clearTimeout(sm3Timer);
-  sm3Timer = setTimeout(computeSm3, 60);
+  if (asyncTimer) clearTimeout(asyncTimer);
+  asyncTimer = setTimeout(computeAsync, 60);
 });
 computeSync();
-computeSm3();
+computeAsync();
 </script>

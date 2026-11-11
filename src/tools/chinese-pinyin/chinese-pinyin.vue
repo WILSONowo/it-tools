@@ -33,7 +33,7 @@
       </n-gi>
     </n-grid>
     <div style="margin-top: 8px">
-      <n-checkbox v-model:value="nonZhSpace">中英文间加空格</n-checkbox>
+      <n-checkbox v-model:checked="nonZhSpace">中英文间加空格</n-checkbox>
     </div>
 
     <n-space justify="center" style="margin: 12px 0">

@@ -13,7 +13,7 @@
       </n-form-item>
 
       <n-form-item label="选项">
-        <n-checkbox v-model:value="slashWords">用 / 分隔单词</n-checkbox>
+        <n-checkbox v-model:checked="slashWords">用 / 分隔单词</n-checkbox>
       </n-form-item>
 
       <n-space justify="center">

@@ -47,7 +47,7 @@
     </n-space>
 
     <n-text v-if="loadingEngine" depth="3" style="font-size: 13px; display: block; text-align: center">
-      正在加载 FFmpeg 引擎...{{ loadPercent }}%(仅首次)
+      处理中...{{ loadPercent }}%(首次使用需先加载 FFmpeg 引擎)
     </n-text>
     <n-progress
       v-if="processing && loadPercent > 0 && !loadingEngine"
@@ -55,7 +55,9 @@
       :percentage="loadPercent"
       style="margin: 8px 0"
     />
-    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0">{{ error }}</n-alert>
+    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0; white-space: pre-wrap">{{
+      error
+    }}</n-alert>
 
     <template v-if="outputUrl">
       <n-h3 style="margin: 16px 0 8px">转换结果({{ outputName }},{{ formatBytes(outputSize) }})</n-h3>
@@ -74,7 +76,7 @@ import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
 import { formatBytes } from '@/utils/image-encode';
-import { execFFmpeg, extOf, mimeOf } from '../_media/ffmpeg-loader';
+import { execFFmpeg, extOf, mimeOf, ffmpegErrorMessage } from '../_media/ffmpeg-loader';
 
 const UploadIcon = Upload;
 const message = useMessage();
@@ -106,7 +108,6 @@ const codecOptions = [
   { label: 'H.264', value: 'libx264' },
   { label: 'H.265 (HEVC)', value: 'libx265' },
   { label: 'VP9', value: 'libvpx-vp9' },
-  { label: 'AV1', value: 'libaom-av1' },
 ];
 const presetOptions = [
   { label: '极速(体积大)', value: 'ultrafast' },
@@ -139,12 +140,7 @@ function audioCodecFor(): string {
 
 function vcodecCompatible(ext: string): boolean {
   // 目标容器对所选编码的兼容提示由用户判断;这里仅做基础过滤
-  if (
-    (vcodec.value === 'libvpx-vp9' || vcodec.value === 'libaom-av1') &&
-    ext !== 'webm' &&
-    ext !== 'mkv' &&
-    ext !== 'mp4'
-  ) {
+  if (vcodec.value === 'libvpx-vp9' && ext !== 'webm' && ext !== 'mkv' && ext !== 'mp4') {
     return false;
   }
   return true;
@@ -155,7 +151,7 @@ async function start() {
   error.value = '';
   outputUrl.value = '';
   if (!vcodecCompatible(format.value)) {
-    error.value = '所选编码与输出格式不兼容:VP9/AV1 建议输出 WebM/MKV/MP4';
+    error.value = '所选编码与输出格式不兼容:VP9 建议输出 WebM/MKV/MP4';
     return;
   }
   const inExt = extOf(file.value.name) || 'mp4';
@@ -170,7 +166,7 @@ async function start() {
     const args = ['-i', inName];
     args.push('-c:v', vcodec.value);
     args.push('-preset', preset.value);
-    if (vcodec.value === 'libvpx-vp9' || vcodec.value === 'libaom-av1') {
+    if (vcodec.value === 'libvpx-vp9') {
       args.push('-b:v', '0');
       args.push('-crf', '30');
     } else {
@@ -186,7 +182,7 @@ async function start() {
     outputSize.value = result.length;
     message.success('转换完成');
   } catch (e) {
-    error.value = (e as Error).message;
+    error.value = ffmpegErrorMessage(e);
   } finally {
     processing.value = false;
     loadingEngine.value = false;

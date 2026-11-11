@@ -2,7 +2,8 @@ const random = () => Math.random();
 
 const randFromArray = (array: unknown[]) => array[Math.floor(random() * array.length)];
 
-const randIntFromInterval = (min: number, max: number) => Math.floor(random() * (max - min) + min);
+// Inclusive on both ends: randIntFromInterval(0, 2) returns 0, 1 or 2.
+const randIntFromInterval = (min: number, max: number) => Math.floor(random() * (max - min + 1) + min);
 
 // Durstenfeld shuffle
 const shuffleArrayMutate = <T>(array: T[]): T[] => {

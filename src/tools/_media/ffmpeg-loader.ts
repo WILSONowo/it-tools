@@ -4,21 +4,21 @@ import { toBlobURL } from '@ffmpeg/util';
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
-export async function getFFmpeg(onProgress?: (percent: number) => void): Promise<FFmpeg> {
+// Keep the tail of ffmpeg's log so failures can explain themselves.
+const LOG_LIMIT = 30;
+const recentLogs: string[] = [];
+
+export async function getFFmpeg(): Promise<FFmpeg> {
   if (ffmpegInstance) return ffmpegInstance;
   if (loadPromise) return loadPromise;
 
+  const ffmpeg = new FFmpeg();
+  ffmpeg.on('log', ({ message }) => {
+    recentLogs.push(message);
+    if (recentLogs.length > LOG_LIMIT) recentLogs.shift();
+  });
+
   loadPromise = (async () => {
-    const ffmpeg = new FFmpeg();
-    if (onProgress) {
-      ffmpeg.on('progress', ({ progress }) => {
-        onProgress(Math.round(progress * 100));
-      });
-    }
-    ffmpeg.on('log', ({ message }) => {
-      // 可在此收集 ffmpeg 输出,默认忽略
-      void message;
-    });
     const base = import.meta.env.BASE_URL || '/';
     await ffmpeg.load({
       classWorkerURL: new URL(`${base}ffmpeg/worker/worker.js`, window.location.href).href,
@@ -29,7 +29,56 @@ export async function getFFmpeg(onProgress?: (percent: number) => void): Promise
     return ffmpeg;
   })();
 
-  return loadPromise;
+  try {
+    return await loadPromise;
+  } catch (e) {
+    // Do not cache a failed load: let the next attempt retry from scratch.
+    loadPromise = null;
+    try {
+      ffmpeg.terminate();
+    } catch {
+      // ignore
+    }
+    throw new Error(`FFmpeg 引擎加载失败,请检查网络后重试(${errorText(e)})`);
+  }
+}
+
+function errorText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'string') return e;
+  return String(e);
+}
+
+/** Clear the log buffer before a run so the error only shows this run's output. */
+export function resetFFmpegLog() {
+  recentLogs.length = 0;
+}
+
+/** Throw a readable error when ffmpeg exits with a non-zero code. */
+export function assertFFmpegExit(code: number) {
+  if (code === 0) return;
+  const tail = recentLogs
+    .filter((line) => line.trim() !== '' && !line.startsWith('Aborted'))
+    .slice(-5)
+    .join('\n');
+  throw new Error(`FFmpeg 处理失败(退出码 ${code})${tail ? `:\n${tail}` : ''}`);
+}
+
+/**
+ * The ffmpeg worker rejects with plain strings, not Error objects,
+ * so `(e as Error).message` is undefined. Always go through this helper.
+ */
+export function ffmpegErrorMessage(e: unknown, fallback = '处理失败,请检查文件格式或参数后重试'): string {
+  const text = errorText(e).trim();
+  return text && text !== 'undefined' ? text : fallback;
+}
+
+async function safeDelete(ffmpeg: FFmpeg, name: string) {
+  try {
+    await ffmpeg.deleteFile(name);
+  } catch {
+    // the file may not exist (e.g. ffmpeg failed before writing output)
+  }
 }
 
 export async function execFFmpeg(
@@ -38,17 +87,27 @@ export async function execFFmpeg(
   outputName: string,
   onProgress?: (percent: number) => void,
 ): Promise<Uint8Array> {
-  const ffmpeg = await getFFmpeg(onProgress);
-  for (const f of inputFiles) {
-    await ffmpeg.writeFile(f.name, f.data);
+  const ffmpeg = await getFFmpeg();
+  const progressHandler = ({ progress }: { progress: number }) => {
+    onProgress?.(Math.round(Math.max(0, Math.min(1, progress || 0)) * 100));
+  };
+  ffmpeg.on('progress', progressHandler);
+  resetFFmpegLog();
+
+  try {
+    for (const f of inputFiles) {
+      await ffmpeg.writeFile(f.name, f.data);
+    }
+    assertFFmpegExit(await ffmpeg.exec(args));
+    return (await ffmpeg.readFile(outputName)) as Uint8Array;
+  } finally {
+    ffmpeg.off('progress', progressHandler);
+    // Always free MEMFS: inputs can be hundreds of MB.
+    for (const f of inputFiles) {
+      await safeDelete(ffmpeg, f.name);
+    }
+    await safeDelete(ffmpeg, outputName);
   }
-  await ffmpeg.exec(args);
-  const data = await ffmpeg.readFile(outputName);
-  for (const f of inputFiles) {
-    await ffmpeg.deleteFile(f.name);
-  }
-  await ffmpeg.deleteFile(outputName);
-  return data as Uint8Array;
 }
 
 export function extOf(name: string): string {

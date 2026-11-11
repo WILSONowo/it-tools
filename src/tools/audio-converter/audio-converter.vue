@@ -45,9 +45,11 @@
     </n-space>
 
     <n-text v-if="loadingEngine" depth="3" style="font-size: 13px; display: block; text-align: center">
-      正在加载 FFmpeg 引擎...{{ loadPercent }}%(仅首次)
+      处理中...{{ loadPercent }}%(首次使用需先加载 FFmpeg 引擎)
     </n-text>
-    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0">{{ error }}</n-alert>
+    <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0; white-space: pre-wrap">{{
+      error
+    }}</n-alert>
 
     <template v-if="outputUrl">
       <n-h3 style="margin: 16px 0 8px">转换结果({{ outputName }},{{ formatBytes(outputSize) }})</n-h3>
@@ -66,7 +68,7 @@ import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Upload } from '@vicons/tabler';
 import { formatBytes } from '@/utils/image-encode';
-import { execFFmpeg, extOf, mimeOf } from '../_media/ffmpeg-loader';
+import { execFFmpeg, extOf, mimeOf, ffmpegErrorMessage } from '../_media/ffmpeg-loader';
 
 const UploadIcon = Upload;
 const message = useMessage();
@@ -151,7 +153,7 @@ async function start() {
     outputSize.value = result.length;
     message.success('转换完成');
   } catch (e) {
-    error.value = (e as Error).message;
+    error.value = ffmpegErrorMessage(e);
   } finally {
     processing.value = false;
     loadingEngine.value = false;

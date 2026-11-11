@@ -12,7 +12,7 @@
         </n-gi>
         <n-gi>
           <n-form-item label="显示文本" style="margin-bottom: 6px">
-            <n-switch v-model:checked="displayValue" />
+            <n-switch v-model:value="displayValue" />
           </n-form-item>
         </n-gi>
         <n-gi>

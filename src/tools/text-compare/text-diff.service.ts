@@ -52,6 +52,10 @@ export function diffArrays<T>(oldItems: T[], newItems: T[]): DiffChange<T>[] {
       x--;
       y--;
     }
+    // d = 0 is the initial snake: there is no edit before it.
+    if (d === 0) {
+      break;
+    }
     if (x === prevX) {
       path.push({ type: 'insert', item: newItems[y - 1] });
       y--;

@@ -69,7 +69,8 @@ const customText = ref('');
 const svgString = computed(() => {
   const w = width.value;
   const h = height.value;
-  const text = customText.value.length > 0 ? customText.value : `${w}x${h}`;
+  const rawText = customText.value.length > 0 ? customText.value : `${w}x${h}`;
+  const text = rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const size = useExactSize.value ? ` width="${w}" height="${h}"` : '';
 
   return `

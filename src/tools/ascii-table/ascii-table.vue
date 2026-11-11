@@ -2,8 +2,8 @@
   <n-card title="ASCII 码表 (0-127)">
     <n-space align="center" style="margin-bottom: 14px">
       <n-input v-model:value="search" placeholder="按名称、字符或代码搜索..." clearable style="max-width: 300px" />
-      <n-checkbox v-model:value="onlyPrintable">仅可打印字符</n-checkbox>
-      <n-checkbox v-model:value="onlyExtended">包含扩展字符 (128-255)</n-checkbox>
+      <n-checkbox v-model:checked="onlyPrintable">仅可打印字符</n-checkbox>
+      <n-checkbox v-model:checked="onlyExtended">包含扩展字符 (128-255)</n-checkbox>
     </n-space>
 
     <n-table size="small">

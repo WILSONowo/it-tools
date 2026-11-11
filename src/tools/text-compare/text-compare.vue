@@ -26,9 +26,9 @@
     </n-grid>
 
     <n-space align="center" style="margin: 8px 0">
-      <n-checkbox v-model:value="showLineNumbers">行号</n-checkbox>
-      <n-checkbox v-model:value="ignoreWhitespace">忽略空白</n-checkbox>
-      <n-checkbox v-model:value="charDiff">词/字符级对比</n-checkbox>
+      <n-checkbox v-model:checked="showLineNumbers">行号</n-checkbox>
+      <n-checkbox v-model:checked="ignoreWhitespace">忽略空白</n-checkbox>
+      <n-checkbox v-model:checked="charDiff">词/字符级对比</n-checkbox>
       <n-tag v-if="statistics" size="small" :bordered="false" style="margin-left: auto">
         +{{ statistics.added }} / -{{ statistics.removed }} ({{ statistics.changed }} 处修改)
       </n-tag>
@@ -84,11 +84,13 @@ type Row = {
   newNumber: number | null;
 };
 
-const normalized = (value: string) => (ignoreWhitespace.value ? value.replace(/\s+/g, ' ').trim() : value);
+// Normalise whitespace per line so line structure is kept.
+const toLines = (value: string) =>
+  value.split(/\r?\n/).map((line) => (ignoreWhitespace.value ? line.replace(/\s+/g, ' ').trim() : line));
 
 const rendered = computed<Row[]>(() => {
-  const oldLines = normalized(original.value).split('\n');
-  const newLines = normalized(modified.value).split('\n');
+  const oldLines = toLines(original.value);
+  const newLines = toLines(modified.value);
   const changes = diffArrays(oldLines, newLines);
 
   const rows: Row[] = [];

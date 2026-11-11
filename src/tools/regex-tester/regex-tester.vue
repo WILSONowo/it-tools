@@ -95,6 +95,7 @@
 import { computed, ref } from 'vue';
 import { useValidation } from '@/composable/validation';
 import { useCopy } from '@/composable/copy';
+import { replaceWithRegex } from './regex-tester.service';
 
 const pattern = ref('(\\d{4})-(\\d{2})-(\\d{2})');
 const testString = ref('Today: 2023-11-15, and also 2023-11-16.');
@@ -177,45 +178,7 @@ const replaced = computed(() => {
   const regex = compiled.value;
   if (!regex || testString.value === '' || replacement.value === '') return '';
 
-  const needsCustomReplacement = /\\\d|\$\d|\$\{/.test(replacement.value);
-  if (!needsCustomReplacement) {
-    return testString.value.replace(regex, replacement.value);
-  }
-
-  const source = testString.value;
-  const result: string[] = [];
-  let lastIndex = 0;
-  regex.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  const expand = (m: string, groups: (string | undefined)[], named?: { [key: string]: string }) => {
-    return replacement.value.replace(/\\?(\$\d+|\$\{[^}]+\})/g, (token) => {
-      if (token.startsWith('\\')) return token.slice(1);
-      const numMatch = token.match(/^\$(\d+)$/);
-      if (numMatch) {
-        const idx = Number(numMatch[1]);
-        return groups[idx] ?? '';
-      }
-      const nameMatch = token.match(/^\$\{([^}]+)\}$/);
-      if (nameMatch && named) {
-        const key = nameMatch[1];
-        return key in named ? named[key] ?? '' : '';
-      }
-      return token;
-    });
-  };
-
-  while ((match = regex.exec(source)) !== null) {
-    const groups = match.slice(1);
-    const named = match.groups ?? undefined;
-    result.push(source.slice(lastIndex, match.index));
-    result.push(expand(match[0], groups, named));
-    lastIndex = match.index + match[0].length;
-    if (match[0] === '') regex.lastIndex++;
-  }
-  result.push(source.slice(lastIndex));
-
-  return result.join('');
+  return replaceWithRegex(testString.value, regex, replacement.value);
 });
 
 const { copy: copyReplaced } = useCopy({ source: replaced, text: '替换后的文本已复制到剪贴板' });

@@ -28,8 +28,8 @@
 
     <n-form-item label="选项">
       <n-space>
-        <n-checkbox v-model:value="caseInsensitive">忽略大小写</n-checkbox>
-        <n-checkbox v-model:value="ignoreWhitespace">忽略空白字符</n-checkbox>
+        <n-checkbox v-model:checked="caseInsensitive">忽略大小写</n-checkbox>
+        <n-checkbox v-model:checked="ignoreWhitespace">忽略空白字符</n-checkbox>
         <n-radio-group v-model:value="sortBy" size="small">
           <n-radio-button value="count">按数量</n-radio-button>
           <n-radio-button value="char">按字符</n-radio-button>

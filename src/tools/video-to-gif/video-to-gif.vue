@@ -98,7 +98,9 @@
       <n-text v-if="processing" depth="3" style="font-size: 13px; display: block; text-align: center">
         {{ stageText }}
       </n-text>
-      <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0">{{ error }}</n-alert>
+      <n-alert v-if="error" type="error" :show-icon="false" style="margin: 10px 0; white-space: pre-wrap">{{
+        error
+      }}</n-alert>
 
       <template v-if="outputUrl">
         <n-h3 style="margin: 16px 0 8px">转换结果({{ outputName }},{{ formatBytes(outputSize) }})</n-h3>
@@ -124,7 +126,7 @@ import type { UploadFileInfo } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { Movie } from '@vicons/tabler';
 import { formatBytes } from '@/utils/image-encode';
-import { extOf, getFFmpeg } from '../_media/ffmpeg-loader';
+import { assertFFmpegExit, extOf, ffmpegErrorMessage, getFFmpeg, resetFFmpegLog } from '../_media/ffmpeg-loader';
 
 const MovieIcon = Movie;
 const message = useMessage();
@@ -290,21 +292,22 @@ async function start() {
   try {
     ffmpeg = await getFFmpeg();
     ffmpeg.on('progress', onProgress);
+    resetFFmpegLog();
     const data = new Uint8Array(await file.value.arrayBuffer());
     await ffmpeg.writeFile(inName, data);
     stage.value = 1;
     stagePercent.value = 0;
-    await ffmpeg.exec(args1);
+    assertFFmpegExit(await ffmpeg.exec(args1));
     stage.value = 2;
     stagePercent.value = 0;
-    await ffmpeg.exec(args2);
+    assertFFmpegExit(await ffmpeg.exec(args2));
     const out = (await ffmpeg.readFile(outName)) as Uint8Array;
     outputUrl.value = URL.createObjectURL(new Blob([out], { type: 'image/gif' }));
     outputName.value = outName;
     outputSize.value = out.length;
     message.success('转换完成');
   } catch (e) {
-    error.value = (e as Error)?.message || '转换失败,请尝试缩短选区或降低尺寸/帧率';
+    error.value = ffmpegErrorMessage(e, '转换失败,请尝试缩短选区或降低尺寸/帧率');
   } finally {
     if (ffmpeg) {
       ffmpeg.off('progress', onProgress);

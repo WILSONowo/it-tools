@@ -22,7 +22,7 @@
         </n-gi>
         <n-gi>
           <n-form-item label="首行为表头" style="margin-bottom: 8px">
-            <n-switch v-model:checked="firstRowHeader" />
+            <n-switch v-model:value="firstRowHeader" />
           </n-form-item>
         </n-gi>
         <n-gi>

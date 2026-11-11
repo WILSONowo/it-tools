@@ -9,6 +9,13 @@ describe('base64 utils', () => {
       expect(textToBase64('lorem ipsum')).to.eql('bG9yZW0gaXBzdW0=');
       expect(textToBase64('-1')).to.eql('LTE=');
     });
+
+    it('should encode non-Latin-1 text as UTF-8', () => {
+      expect(textToBase64('中文')).to.eql('5Lit5paH');
+      expect(textToBase64('é')).to.eql('w6k=');
+      expect(textToBase64('😀')).to.eql('8J+YgA==');
+      expect(textToBase64('张三:密码')).to.eql('5byg5LiJOuWvhueggQ==');
+    });
   });
 
   describe('base64ToText', () => {
@@ -18,6 +25,13 @@ describe('base64 utils', () => {
       expect(base64ToText('bG9yZW0gaXBzdW0=')).to.eql('lorem ipsum');
       expect(base64ToText('data:text/plain;base64,bG9yZW0gaXBzdW0=')).to.eql('lorem ipsum');
       expect(base64ToText('LTE=')).to.eql('-1');
+    });
+
+    it('should decode UTF-8 text', () => {
+      expect(base64ToText('5Lit5paH')).to.eql('中文');
+      expect(base64ToText('8J+YgA==')).to.eql('😀');
+      const long = '中文テキスト'.repeat(20000);
+      expect(base64ToText(textToBase64(long))).to.eql(long);
     });
 
     it('should throw for incorrect base64 string', () => {
